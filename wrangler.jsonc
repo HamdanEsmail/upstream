@@ -20,7 +20,7 @@
   ],
   "vars": {
     "PUBLIC_BASE_URL": "https://upstream.hamdanesmail12-7a9.workers.dev",
-    "PAID_DEEP_BUDGET_USD": "0"
+    "PAID_DEEP_BUDGET_USD": "6"
   },
   "assets": {
     "directory": "./public"
