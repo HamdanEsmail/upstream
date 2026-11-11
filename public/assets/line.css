@@ -414,6 +414,12 @@ a:hover {
   color: var(--muted);
 }
 
+.title {
+  font-size: 14px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
 .stop .quote {
   font-family: var(--serif);
   font-size: 19px;
@@ -459,7 +465,7 @@ a:hover {
 }
 
 .drift + .drift {
-  margin-left: 0;
+  margin-left: 8px;
 }
 
 .noted {

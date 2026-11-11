@@ -12,12 +12,7 @@ function Quote({ step }: { step: DocumentStep }) {
   return (
     <p class="quote">
       “
-      {runs.map((run, i) => (
-        <>
-          {i > 0 ? " " : ""}
-          {run.op === "added" ? <mark>{run.text}</mark> : run.text}
-        </>
-      ))}
+      {runs.map((run) => (run.op === "added" ? <mark>{run.text}</mark> : run.text))}
       ”
     </p>
   );
@@ -37,14 +32,14 @@ function Stop({ step, next, cold, last, reached }: { step: DocumentStep; next: D
   return (
     <li class={`stop${below}${unread}`}>
       <p class="meta">
-        {step.position === 0 ? "The page you read" : step.datePlain}{" "}
+        {step.position === 0 ? "The page you read" : step.date ? step.datePlain : "No date"}{" "}
         <span>
-          · {step.publisher}
-          {step.position === 0 ? ` · ${step.datePlain}` : ""}
-          {step.title && step.position > 0 ? ` · ${step.title}` : ""}
+          · {step.name}
+          {step.position === 0 && step.date ? ` · ${step.datePlain}` : ""}
           {source ? ` · ${source}` : ""}
         </span>
       </p>
+      {step.title ? <p class="title">{step.title}</p> : null}
       <Quote step={step} />
       <p class="tags">
         {step.openUrl ? (

@@ -377,6 +377,16 @@ describe("crediting a source to the page that quotes it", () => {
   });
 });
 
+describe("the summary", () => {
+  it("keeps the first two sentences of what the deep search wrote", async () => {
+    const summary = "It comes from a 2001 survey. The figure was rounded up. A third sentence goes on at length. And a fourth.";
+    world({ runStates: [{ status: "COMPLETED", evidence: [], deep_result: { result: report(trail({ summary })) } }] });
+    await newTrace();
+    await runTrace(env, "t1", fakeStep(), clock);
+    expect((await getTrace(env.DB, "t1"))?.summary).toBe("It comes from a 2001 survey. The figure was rounded up.");
+  });
+});
+
 describe("a quotation", () => {
   it("gets no notes about figures or years: its trail is about who said it", async () => {
     world({ runStates: [{ status: "COMPLETED", evidence: [], deep_result: { result: report(trail({ verdict: "said_by_someone_else" })) } }] });

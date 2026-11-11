@@ -114,17 +114,48 @@ describe("buildDocument", () => {
       openUrl: `${START}#:~:text=People%20spend%2090%20percent%20of%20their%20time%20indoors`,
       notes: ["rounded: 87 percent became 90 percent"],
     });
-    // The words this step changed, compared with the older sentence it restates.
+    // Only the words a named change points at are marked.
     expect(doc?.steps[0]?.marks).toEqual([
-      { op: "same", text: "People spend" },
-      { op: "added", text: "90" },
-      { op: "same", text: "percent of their time indoors." },
+      { op: "same", text: "People spend " },
+      { op: "added", text: "90 percent" },
+      { op: "same", text: " of their time indoors." },
     ]);
     expect(doc?.steps[1]).toMatchObject({ position: 1, datePlain: "26 July 2001", marks: null, notes: [] });
     expect(doc?.noted).toEqual(["The group changed."]);
     expect(doc?.cite?.plain).toBe(
       'Journal of Examples, "A survey of daily activity" (26 July 2001). https://journal.example/study-2001\nOriginal wording: "People spend an average of 87 percent of their time indoors."\nTrail: https://upstream.test/t/t1',
     );
+  });
+
+  it("marks the word a dropped year turned into, and nothing when no change is named", async () => {
+    await saveSteps(env.DB, "t1", [
+      step({ reachedBy: "start", wording: "People now lose focus after 8 seconds, a study says." }),
+      step({ url: STUDY, wording: "In 2013 the span was 8 seconds.", date: "2015" }),
+    ]);
+    await saveChanges(env.DB, "t1", [{ fromPosition: 1, toPosition: 0, kind: "year_dropped", detail: '2013 became "now"', basis: "code" }]);
+    const doc = await buildDocument(env, "t1");
+    expect(doc?.steps[0]?.marks).toEqual([
+      { op: "same", text: "People " },
+      { op: "added", text: "now" },
+      { op: "same", text: " lose focus after 8 seconds, a study says." },
+    ]);
+    expect(doc?.steps[1]?.marks).toBeNull();
+  });
+
+  it("names a step by a short publisher, else by its site, and trims long titles and source notes", async () => {
+    const long = "Journal of Exposure Science and Environmental Epidemiology (a national laboratory, agency-sponsored)";
+    await saveSteps(env.DB, "t1", [
+      step({ reachedBy: "start", wording: "A sentence here." }),
+      step({ url: STUDY, publisher: long, title: "T".repeat(200), namesSource: "N".repeat(400) }),
+      step({ url: "https://agency.example/x", publisher: "The Agency", title: "Read" }),
+      step({ url: null, publisher: "A 1960 handbook", reading: "offline" }),
+    ]);
+    const doc = await buildDocument(env, "t1");
+    expect(doc?.steps.map((s) => s.name)).toEqual(["news.example", "journal.example", "The Agency", "A 1960 handbook"]);
+    expect(doc?.steps[1]?.title).toHaveLength(121);
+    expect(doc?.steps[1]?.title?.endsWith("…")).toBe(true);
+    expect(doc?.steps[1]?.namesSource).toHaveLength(181);
+    expect(doc?.steps[2]?.title).toBeNull();
   });
 
   it("opens a saved copy when that is where the step was read, and a PDF without a sentence link", async () => {

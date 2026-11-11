@@ -2,11 +2,15 @@
 // sentences, and decide.
 import { namedChanges, type Change } from "../core/changes";
 import { restates } from "../core/match";
+import { sentences } from "../core/text";
 import { mergeSteps, orderSteps, sameAddress, type ReachedBy } from "../core/trail";
 import { decide } from "../core/verdict";
 import type { Env } from "../env";
 import { proposedOf } from "./check";
 import { addEvent, clearStaged, getStaged, getSteps, getTrace, saveChanges, saveSteps, updateTrace, type StoredChange, type StoredStep } from "./store";
+
+/** The first two sentences of a summary: the verdict line must be read at a glance. */
+const brief = (summary: string): string => sentences(summary).slice(0, 2).join(" ").slice(0, 420);
 
 const confirmed = (s: StoredStep): s is StoredStep & { wording: string } => s.wording !== null && (s.reading === "exact" || s.reading === "close" || s.reading === "offline");
 
@@ -67,7 +71,7 @@ export async function finishTrace(env: Env, traceId: string, now: Date): Promise
     thisYear: now.getUTCFullYear(),
   });
 
-  let summary = trail?.summary ?? "";
+  let summary = brief(trail?.summary ?? "");
   if (trail === null) {
     summary =
       trace.researchRunId === null
