@@ -62,7 +62,9 @@ export function stageWords(status: string, pagesRead: number, latestHosts: strin
   if (status === "following") return "Reading the page and following its links.";
   if (status === "searching") {
     if (pagesRead === 0) return "The deep search has started.";
-    const latest = latestHosts.length > 0 ? `, most recently ${latestHosts.join(" and ")}` : "";
+    // "a", "a and b", "a, b and c"
+    const listed = latestHosts.length > 1 ? `${latestHosts.slice(0, -1).join(", ")} and ${latestHosts[latestHosts.length - 1]}` : (latestHosts[0] ?? "");
+    const latest = listed !== "" ? `, most recently ${listed}` : "";
     return `The deep search has read ${pagesRead} ${pagesRead === 1 ? "page" : "pages"} so far${latest}.`;
   }
   if (status === "checking") return "Re-reading each step the deep search proposed.";

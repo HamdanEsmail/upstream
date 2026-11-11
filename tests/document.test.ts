@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
-import { changeWords, quoted, reachedWords, readingWords, verdictWords } from "../src/site/words";
+import { changeWords, quoted, reachedWords, readingWords, stageWords, verdictWords } from "../src/site/words";
 import { buildDocument } from "../src/trace/document";
 import { addEvent, insertTrace, saveChanges, saveSteps, updateTrace, type StoredStep } from "../src/trace/store";
 
@@ -230,5 +230,13 @@ describe("buildDocument on awkward sources", () => {
     // The citation does not send a reader to the newspaper's front page either.
     expect(doc?.cite?.plain).toContain("The Daily Example (no date). Not readable online.");
     expect(doc?.cite?.plain).not.toContain("https://paper.example/");
+  });
+});
+
+describe("stageWords", () => {
+  it("lists the latest sites the way a sentence would: commas, then one and", () => {
+    expect(stageWords("searching", 26, ["a.example", "b.example", "c.example"])).toBe("The deep search has read 26 pages so far, most recently a.example, b.example and c.example.");
+    expect(stageWords("searching", 12, ["a.example", "b.example"])).toBe("The deep search has read 12 pages so far, most recently a.example and b.example.");
+    expect(stageWords("searching", 1, ["a.example"])).toBe("The deep search has read 1 page so far, most recently a.example.");
   });
 });
