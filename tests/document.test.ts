@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
-import { changeWords, reachedWords, readingWords, verdictWords } from "../src/site/words";
+import { changeWords, quoted, reachedWords, readingWords, verdictWords } from "../src/site/words";
 import { buildDocument } from "../src/trace/document";
 import { addEvent, insertTrace, saveChanges, saveSteps, updateTrace, type StoredStep } from "../src/trace/store";
 
@@ -53,6 +53,12 @@ describe("words", () => {
     expect(reachedWords("named")).toBe("Named by the page above, without a link.");
     expect(reachedWords("search")).toBe("Found by search, not by a link.");
     expect(reachedWords("start")).toBe("The page you read.");
+  });
+
+  it("puts quotation marks round a sentence unless it already opens with one", () => {
+    expect(quoted("People spend 90 percent of their time indoors.")).toBe("“People spend 90 percent of their time indoors.”");
+    expect(quoted("“Insanity is doing the same thing.” — A physicist")).toBe("“Insanity is doing the same thing.” — A physicist");
+    expect(quoted('  "Already quoted" ')).toBe('"Already quoted"');
   });
 
   it("puts a change in a few plain words", () => {

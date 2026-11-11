@@ -10,6 +10,12 @@ const VERDICTS: Record<string, string> = {
   not_settled: "Not settled",
 };
 
+/** A sentence in quotation marks; one that already opens with a mark is left as it is. */
+export function quoted(text: string): string {
+  const t = text.trim();
+  return /^["“‘'«]/.test(t) ? t : `“${t}”`;
+}
+
 export function verdictWords(verdict: string | null): string {
   return VERDICTS[verdict ?? "not_settled"] ?? "Not settled";
 }

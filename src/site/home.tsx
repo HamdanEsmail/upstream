@@ -2,7 +2,7 @@
 import { TEXT_MAX, TEXT_MIN } from "../core/limits";
 import { siteName } from "../core/links";
 import type { Trace } from "../trace/store";
-import { verdictWords } from "./words";
+import { quoted, verdictWords } from "./words";
 
 export function Home({ note, recent }: { note: string | null; recent: Trace[] }) {
   return (
@@ -43,8 +43,8 @@ export function Home({ note, recent }: { note: string | null; recent: Trace[] })
           {recent.map((t) => (
             <li>
               <a href={`/t/${t.id}`}>
-                <span class="v">{verdictWords(t.verdict)}</span>
-                <span class="claimline">“{t.text}”</span>
+                <span class="v">{t.status === "done" ? verdictWords(t.verdict) : "Being traced now"}</span>
+                <span class="claimline">{quoted(t.text)}</span>
                 <span class="where">highlighted on {siteName(t.pageUrl)}</span>
               </a>
             </li>

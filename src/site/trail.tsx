@@ -2,18 +2,19 @@
 // a wide screen) and the extension's side panel (one column).
 import { plainDate } from "../core/dates";
 import type { DocumentStep, TrailDocument } from "../trace/document";
-import { dateSourceWords, duration, reachedLine, reachedWords, readingWords, stageWords } from "./words";
+import { dateSourceWords, duration, quoted, reachedLine, reachedWords, readingWords, stageWords } from "./words";
 
 const confirmed = (s: DocumentStep): boolean => s.wording !== null && (s.reading === "exact" || s.reading === "close" || s.reading === "offline");
 
 function Quote({ step }: { step: DocumentStep }) {
   if (step.wording === null) return <p class="gap">{readingWords(step.reading, step.readFrom, step.quotedBy)}</p>;
-  const runs = step.marks ?? [{ op: "same" as const, text: step.wording }];
+  if (step.marks === null) return <p class="quote">{quoted(step.wording)}</p>;
+  const bare = quoted(step.wording) === step.wording.trim();
   return (
     <p class="quote">
-      “
-      {runs.map((run) => (run.op === "added" ? <mark>{run.text}</mark> : run.text))}
-      ”
+      {bare ? "" : "“"}
+      {step.marks.map((run) => (run.op === "added" ? <mark>{run.text}</mark> : run.text))}
+      {bare ? "" : "”"}
     </p>
   );
 }
@@ -146,7 +147,7 @@ export function TrailBody({ doc, panel }: { doc: TrailDocument; panel: boolean }
               {doc.pageSite}
             </a>
           </p>
-          <blockquote class="quote">“{doc.text}”</blockquote>
+          <blockquote class="quote">{quoted(doc.text)}</blockquote>
         </section>
         {doc.running ? <Working doc={doc} /> : <Verdict doc={doc} />}
         {done ? <Facts doc={doc} /> : null}
