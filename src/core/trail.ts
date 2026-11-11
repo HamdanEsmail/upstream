@@ -27,7 +27,7 @@ export type Step = {
 const TRACKING = /^(?:utm_\w+|fbclid|gclid|srsltid|ref)$/i;
 
 /** One key per page, or null when the text is not a web address. */
-function addressKey(address: string): string | null {
+export function addressKey(address: string): string | null {
   const saved = /^https?:\/\/web\.archive\.org\/web\/\d+[a-z_]*\/(.+)$/i.exec(address.trim());
   let target = saved ? (saved[1] ?? "") : address.trim();
   if (saved && !/^https?:\/\//i.test(target)) target = "http://" + target;

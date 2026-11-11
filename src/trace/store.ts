@@ -266,3 +266,8 @@ export async function totals(db: D1Database): Promise<{ traces: number; steps: n
     .first<{ traces: number; steps: number; deep: number; spent: number }>();
   return { traces: row?.traces ?? 0, steps: row?.steps ?? 0, deepSearches: row?.deep ?? 0, spendUsd: Math.round((row?.spent ?? 0) * 100) / 100 };
 }
+
+/** Removes a trace that never got going, so the same claim can be started again. */
+export async function deleteTrace(db: D1Database, id: string): Promise<void> {
+  await db.prepare("DELETE FROM traces WHERE id = ?").bind(id).run();
+}
