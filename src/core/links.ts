@@ -32,6 +32,12 @@ function social(u: URL): boolean {
   return false;
 }
 
+/** The site an address belongs to, without "www."; empty when the text is not a web address. */
+export function siteName(address: string | null): string {
+  const u = address === null ? null : parse(address);
+  return u ? site(u) : "";
+}
+
 /**
  * `near` are the links in the highlighted paragraph (the extension sends them); they come
  * first and may stay on the same site. `links` are the rest of the page's links; of those

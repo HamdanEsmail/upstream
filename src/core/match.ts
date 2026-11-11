@@ -43,6 +43,17 @@ function score(claim: string, claimStems: Set<string>, sentence: string): number
   return overlap * 0.75 + (hit ? 0.25 : 0);
 }
 
+/** True when two sentences say the same thing in largely the same words, so comparing them is fair. */
+export function restates(a: string, b: string): boolean {
+  const sa = stems(a);
+  const sb = stems(b);
+  const smaller = Math.min(sa.size, sb.size);
+  if (smaller === 0) return false;
+  let shared = 0;
+  for (const w of sa) if (sb.has(w)) shared++;
+  return shared / smaller >= 0.5;
+}
+
 /** The run of neighbouring sentences that together hold `wanted`, or null when the page does not. */
 function spanned(list: string[], wanted: string): string | null {
   const parts = list.map(normalise);

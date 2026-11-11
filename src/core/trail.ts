@@ -49,7 +49,7 @@ export function sameAddress(a: string, b: string): boolean {
 }
 
 /** Joins two lists of steps. A page in both keeps its first entry, with gaps filled from the second. */
-export function mergeSteps(first: Step[], second: Step[]): Step[] {
+export function mergeSteps<T extends Step>(first: T[], second: T[]): T[] {
   const out = first.map((s) => ({ ...s }));
   for (const s of second) {
     const twin = s.url === null ? undefined : out.find((r) => r.url !== null && sameAddress(r.url, s.url as string));
@@ -76,7 +76,7 @@ const sortable = (date: string): string => (date + "-00-00").slice(0, 10);
  * The highlighted page stays first; the rest run from newest to oldest. A step with no
  * date stays right after the step it followed.
  */
-export function orderSteps(steps: Step[]): Step[] {
+export function orderSteps<T extends Step>(steps: T[]): T[] {
   const [start, ...rest] = steps;
   if (!start) return [];
   let carried = "9999-99-99";

@@ -25,11 +25,11 @@ Design: `../specs/2026-11-11-upstream-design.md`. I work through this list in or
 ## 3. A trace (`src/trace/`, D1, Workflow)
 
 - [x] Migrations for `traces`, `steps`, `changes`, `events`, `spend`, `limits`.
-- [ ] `create.ts`: validate, reuse an identical claim, apply the visitor and daily limits, start the Workflow.
-- [ ] `follow.ts`: read the page, then follow links up to five steps deep.
-- [ ] `deep.ts`: start the research run (free runs first, daily cap), poll with sleeps, record progress.
-- [ ] `check.ts`: re-read every proposed step, fall back to the saved copy, set the reading.
-- [ ] `finish.ts`: merge, order, compare, name changes, decide, store.
+- [x] `create.ts`: validate, reuse an identical claim, apply the visitor and daily limits, start the Workflow.
+- [x] `follow.ts`: read the page, then follow links up to five steps deep.
+- [x] `deep.ts`: start the research run (free runs first, daily cap), poll with sleeps, record progress.
+- [x] `check.ts`: re-read every proposed step, fall back to the saved copy, set the reading.
+- [x] `finish.ts`: merge, order, compare, name changes, decide, store.
 - [ ] `adopt.ts`: build a trail from a research run that already finished.
 
 ## 4. Routes and pages (`src/handlers/`, `src/site/`)

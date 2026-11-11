@@ -25,6 +25,17 @@ export async function startResearch(env: Env, account: Account, query: string): 
   return id;
 }
 
+/**
+ * How many research runs the account has made since the start of `day` (UTC) that count
+ * towards the two free ones: every run that did not fail or get cancelled.
+ */
+export async function runsToday(env: Env, account: Account, day: string): Promise<number> {
+  const res = await tinyfishFetch(env, account, `${AGENT_API}/v1/research-run?created_after=${day}T00:00:00Z&limit=50`, { method: "GET" });
+  const body = await readJson<{ data?: unknown }>(res);
+  const rows = Array.isArray(body.data) ? (body.data as { status?: unknown }[]) : [];
+  return rows.filter((r) => !/^(FAILED|CANCELLED)$/i.test(String(r?.status ?? ""))).length;
+}
+
 function host(url: unknown): string | null {
   try {
     return typeof url === "string" ? new URL(url).hostname.replace(/^www\./, "") : null;

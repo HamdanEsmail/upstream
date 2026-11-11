@@ -12,6 +12,8 @@ export default defineConfig({
           TINYFISH_API_KEY: "test-tinyfish-key",
           TINYFISH_API_KEY_2: "test-tinyfish-key-2",
           ADMIN_TOKEN: "test-admin",
+          // Room for exactly one paid deep search in tests.
+          PAID_DEEP_BUDGET_USD: "2",
           PUBLIC_BASE_URL: "https://upstream.test",
           TEST_MIGRATIONS: await readD1Migrations("./migrations"),
         },

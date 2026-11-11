@@ -7,5 +7,8 @@ export type Env = {
   /** My second TinyFish account; its free research runs are used after the first account's. */
   TINYFISH_API_KEY_2?: string;
   ADMIN_TOKEN: string;
+  /** The most that may be spent in total on paid deep searches, in dollars. Unset means nothing. */
+  PAID_DEEP_BUDGET_USD?: string;
+  TRACE_WORKFLOW: Workflow<{ traceId: string }>;
   PUBLIC_BASE_URL: string;
 };

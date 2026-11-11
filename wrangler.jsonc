@@ -11,8 +11,16 @@
       "migrations_dir": "migrations"
     }
   ],
+  "workflows": [
+    {
+      "name": "upstream-trace",
+      "binding": "TRACE_WORKFLOW",
+      "class_name": "TraceWorkflow"
+    }
+  ],
   "vars": {
-    "PUBLIC_BASE_URL": "https://upstream.hamdanesmail12-7a9.workers.dev"
+    "PUBLIC_BASE_URL": "https://upstream.hamdanesmail12-7a9.workers.dev",
+    "PAID_DEEP_BUDGET_USD": "6"
   },
   "assets": {
     "directory": "./public"
