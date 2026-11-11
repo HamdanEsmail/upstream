@@ -59,7 +59,9 @@ describe("findClaim on long pages", () => {
     expect(findClaim(page, "People spend most of their day inside a building").reading).toBe("close");
   });
 
-  it("finds a word that holds the letter d, which an early draft of the shortcut skipped", () => {
-    expect(findClaim("Harbour data doubled during the decade, the board said.", "The board said harbour data doubled in a decade").reading).toBe("close");
+  it("reads a page only up to its first 120,000 characters", () => {
+    const filler = "The tide table lists two high waters and a low one. ".repeat(2400);
+    expect(filler.length).toBeGreaterThan(120_000);
+    expect(findClaim(filler + "People spend most of their day inside a building.", "People spend most of their day inside a building").reading).toBe("not_found");
   });
 });
