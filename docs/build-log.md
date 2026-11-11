@@ -77,3 +77,7 @@ I gave a fresh Claude (Sonnet) the address of the live site, curl, the README, a
 - **The API was described only in the README, and the extension page was thin.** Both are on the site now.
 
 Left as they are, on purpose: a scanned 1981 page whose text comes back with spaces inside words is shown as "found in slightly different words", which is what it is; and a page proposed by the deep search that does not hold the wording stays on the trail, marked as not found.
+
+## 11 November: rounded, or changed?
+
+Reading a road-safety page for a later trail, I saw Upstream call "1.16 million became 1.19 million" a rounding. It is not: both figures are given to the same precision, so one is simply a different figure. A change is now called rounded only when the newer figure is the older one written to fewer digits (87 as 90, 1,234 as 1,200). Anything else is "the figure changed".
