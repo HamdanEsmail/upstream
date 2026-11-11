@@ -28,7 +28,11 @@ export async function finishTrace(env: Env, traceId: string, now: Date): Promise
   // rests on. Then compare neighbours, but only where one sentence restates the other.
   const changes: StoredChange[] = [];
   const seen = new Set<string>();
+  // A quotation's trail is about who said it. Pages along it discuss the quote rather than
+  // restate a figure, so comparing their sentences for figures and years would only mislead.
+  const quotation = trail?.verdict === "said_by_someone_else";
   const add = (list: Change[], from: number, to: number) => {
+    if (quotation) return;
     for (const c of list) {
       const key = `${c.kind}|${c.detail}`;
       if (seen.has(key)) continue;
@@ -40,7 +44,7 @@ export async function finishTrace(env: Env, traceId: string, now: Date): Promise
   const solid = steps.map((s, i) => ({ s, i })).filter(({ s, i }) => i > 0 && confirmed(s));
   // The earliest confirmed step that carries a date; an undated one cannot be called the oldest.
   const earliest = [...solid].reverse().find(({ s }) => s.date !== null) ?? solid[solid.length - 1];
-  const headline = start && start.wording !== null && earliest && earliest.s.wording !== null ? namedChanges(earliest.s.wording, start.wording) : [];
+  const headline = !quotation && start && start.wording !== null && earliest && earliest.s.wording !== null ? namedChanges(earliest.s.wording, start.wording) : [];
   if (earliest) add(headline, earliest.i, 0);
   const chain = start && start.wording !== null ? [{ s: start, i: 0 }, ...solid] : solid;
   for (let k = 1; k < chain.length; k++) {

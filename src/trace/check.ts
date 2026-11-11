@@ -13,6 +13,16 @@ import { addEvent, getSteps, getTrace, stageStep, updateTrace, type StoredStep, 
 /** A page keeps at most this many of its links. */
 const LINKS_KEPT = 200;
 
+/** A site's front page: an address like this cannot be the article a report means. */
+function bareSite(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return u.pathname === "/" && u.search === "";
+  } catch {
+    return false;
+  }
+}
+
 export function proposedOf(trace: Trace): ProposedTrail | null {
   if (trace.proposed === null) return null;
   try {
@@ -106,16 +116,21 @@ export async function checkProposed(env: Env, traceId: string, index: number, no
     }
   }
 
-  // A source that cannot be read itself may be quoted by the step before it.
-  const before = index > 0 ? (trail.steps[index - 1]?.url ?? null) : null;
-  if (step.wording === null && p.wording !== null && before !== null) {
-    const [quoting] = await readPages(env, [before]);
-    const found = quoting && quoting.ok ? findClaim(quoting.text, p.wording) : null;
-    if (found && found.reading !== "not_found") {
+  // A source that cannot be read itself (only in print, unreadable, or given as a site's front
+  // page) may be quoted by one of the two steps before it. Only a word-for-word quote counts;
+  // a page that was read and does not hold the wording stays "not found".
+  const notReadableItself = p.url === null || step.reading === "unreadable" || (step.reading === "not_found" && bareSite(p.url));
+  if (step.wording === null && p.wording !== null && notReadableItself) {
+    const earlier = [trail.steps[index - 1]?.url, trail.steps[index - 2]?.url].filter((u): u is string => typeof u === "string");
+    for (const quoting of await readPages(env, earlier)) {
+      if (!quoting.ok) continue;
+      const found = findClaim(quoting.text, p.wording);
+      if (found.reading !== "exact") continue;
       step.wording = found.sentence;
       step.reading = "offline";
-      step.quotedBy = siteName(before);
+      step.quotedBy = siteName(quoting.url);
       message = `${site} is not readable online; ${step.quotedBy} quotes it.`;
+      break;
     }
   }
 

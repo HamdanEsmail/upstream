@@ -344,3 +344,45 @@ describe("which sentence the verdict rests on", () => {
     expect(changes.some((c) => c.detail.includes("more than"))).toBe(false);
   });
 });
+
+describe("crediting a source to the page that quotes it", () => {
+  const withLast = (last: Record<string, unknown>, extra: Partial<World> = {}) =>
+    world({ runStates: [{ status: "COMPLETED", evidence: [], deep_result: { result: report(trail({ steps: [...trail().steps.slice(0, 2), last], origin: { found: false, url: "", kind: "other", note: "" } })) } }], ...extra });
+  const AGENCY_LINE = "On average, people spend approximately 90 percent of their time indoors, the agency says.";
+
+  it("does not do it for a page that was read and simply does not hold the wording", async () => {
+    withLast({ url: STUDY, publisher: "Journal of Examples", date: "2001", wording: AGENCY_LINE, names_source: "none", linked: false });
+    await newTrace();
+    await runTrace(env, "t1", fakeStep(), clock);
+    expect((await getSteps(env.DB, "t1"))[2]).toMatchObject({ url: STUDY, reading: "not_found", wording: null, quotedBy: null });
+  });
+
+  it("does it for a bare site address, looking two pages back", async () => {
+    const paper = "https://courier.example/";
+    withLast(
+      { url: `${paper} [Daily Courier, 11 October 1981]`, publisher: "Daily Courier", date: "1981-10-11", wording: "People spend nearly 90 percent of their time indoors, yet indoor air is studied less.", names_source: "none", linked: false },
+      { pages: { ...PAGES, [paper]: { text: "Today's front page.", links: [] } } },
+    );
+    await newTrace();
+    await runTrace(env, "t1", fakeStep(), clock);
+    const last = (await getSteps(env.DB, "t1"))[2];
+    expect(last).toMatchObject({ url: paper, reading: "offline", quotedBy: "news.example", date: "1981-10-11" });
+  });
+
+  it("does not do it on a loose match", async () => {
+    withLast({ url: "print only", publisher: "A 1960 handbook", date: "1960", wording: "People spend approximately 90 percent of time indoors on average, says the agency.", names_source: "none", linked: false });
+    await newTrace();
+    await runTrace(env, "t1", fakeStep(), clock);
+    expect((await getSteps(env.DB, "t1"))[2]).toMatchObject({ url: null, reading: "offline", wording: null, quotedBy: null });
+  });
+});
+
+describe("a quotation", () => {
+  it("gets no notes about figures or years: its trail is about who said it", async () => {
+    world({ runStates: [{ status: "COMPLETED", evidence: [], deep_result: { result: report(trail({ verdict: "said_by_someone_else" })) } }] });
+    await newTrace();
+    await runTrace(env, "t1", fakeStep(), clock);
+    expect(await getTrace(env.DB, "t1")).toMatchObject({ verdict: "said_by_someone_else" });
+    expect((await getChanges(env.DB, "t1")).filter((c) => c.basis === "code")).toEqual([]);
+  });
+});
