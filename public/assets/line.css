@@ -309,10 +309,10 @@ a:hover {
 
 .log {
   margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--hair);
   font-size: 14px;
   color: var(--text);
-  border-left: 3px solid var(--hair);
-  padding-left: 12px;
 }
 
 .log li + li {
