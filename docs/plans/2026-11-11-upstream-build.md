@@ -52,3 +52,13 @@ Design: `../specs/2026-11-11-upstream-design.md`. I work through this list in or
 - [ ] A test by someone who has never seen it; fix what is really broken.
 - [ ] README with a real screenshot, the build log, the runbook.
 - [ ] The film and the submission texts.
+
+## Notes from running the core over four real traces (11 November)
+
+I ran the finished core over four real research reports and the live pages they cite. All 19 addresses were read, and 15 of the 19 steps were confirmed word for word or closely. What it taught me, for sections 3 and 4:
+
+- Compare sentences for changes in two places only: the earliest confirmed sentence against the highlighted one (this feeds the verdict), and neighbouring steps whose sentences restate each other. A page that discusses a claim, such as a fact-check, is not a restatement; comparing it gives noise such as a stray year.
+- A step whose address is a site's front page, or whose page does not hold the wording, is looked for in the other pages already read. If one of them quotes it, the step is `offline` and the wording is credited to that page.
+- The page's own date wins over the date in the report. They differed on two of the four start pages.
+- In PDFs the wording is often not found word for word. The step stays, marked as not found on the page.
+- A claim that runs across two sentences must return both. Fixed, with a test.

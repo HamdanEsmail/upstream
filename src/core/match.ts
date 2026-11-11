@@ -43,6 +43,27 @@ function score(claim: string, claimStems: Set<string>, sentence: string): number
   return overlap * 0.75 + (hit ? 0.25 : 0);
 }
 
+/** The run of neighbouring sentences that together hold `wanted`, or null when the page does not. */
+function spanned(list: string[], wanted: string): string | null {
+  const parts = list.map(normalise);
+  const at = parts.join(" ").indexOf(wanted);
+  if (at === -1) return null;
+  const end = at + wanted.length;
+  let from = -1;
+  let to = -1;
+  let offset = 0;
+  for (const [i, part] of parts.entries()) {
+    const stop = offset + part.length;
+    if (from === -1 && at < stop) from = i;
+    if (end <= stop + 1) {
+      to = i;
+      break;
+    }
+    offset = stop + 1;
+  }
+  return from === -1 || to === -1 ? null : list.slice(from, to + 1).join(" ");
+}
+
 /** Looks for `claim` in `pageText` and returns the page's own sentence that states it. */
 export function findClaim(pageText: string, claim: string): Found {
   const wanted = core(claim);
@@ -56,8 +77,9 @@ export function findClaim(pageText: string, claim: string): Found {
     const sc = score(claim, claimStems, s);
     if (best === null || sc > best.score) best = { sentence: s, score: sc };
   }
-  // A claim that runs across two sentences is still word for word on the page.
-  if (best !== null && normalise(list.join(" ")).includes(wanted)) return { reading: "exact", sentence: best.sentence, score: 1 };
+  // A claim that runs across sentences is still word for word on the page: return all of them.
+  const across = spanned(list, wanted);
+  if (across !== null) return { reading: "exact", sentence: across, score: 1 };
   if (best !== null && best.score >= CLOSE_AT) return { reading: "close", sentence: best.sentence, score: best.score };
   return { reading: "not_found", sentence: null, score: best?.score ?? 0 };
 }

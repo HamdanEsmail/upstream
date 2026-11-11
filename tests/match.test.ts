@@ -21,6 +21,13 @@ describe("findClaim", () => {
     expect(found.sentence).toBe("People spend nearly 90 percent of their time indoors, yet indoor air is studied less than outdoor air.");
   });
 
+  it("returns every sentence a claim runs across", () => {
+    const page = "Most people spend more than 90 percent of their time inside. Indeed, with travel, it is nearly 24 hours a day. The ferry leaves at noon.";
+    const found = findClaim(page, "more than 90 percent of their time inside. Indeed, with travel, it is nearly 24 hours");
+    expect(found.reading).toBe("exact");
+    expect(found.sentence).toBe("Most people spend more than 90 percent of their time inside. Indeed, with travel, it is nearly 24 hours a day.");
+  });
+
   it("is close when the same statement is worded a little differently", () => {
     const found = findClaim(PAGE, "A full 90% of all the data in the world has been generated over the last two years.");
     expect(found.reading).toBe("close");
