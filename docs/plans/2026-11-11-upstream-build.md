@@ -4,12 +4,12 @@ Design: `../specs/2026-11-11-upstream-design.md`. I work through this list in or
 
 ## 1. The pure core (`src/core/`, no network, no database)
 
-- [ ] `text.ts`: `normalise`, `sentences`, `numbers` (digits, number words, percent, million and billion), `years`, `contentWords`.
-- [ ] `match.ts`: `findClaim(pageText, claim)` returns the reading (`exact`, `close`, `not_found`) and the page's own sentence.
-- [ ] `diff.ts`: `wordDiff(older, newer)` as same, removed and added runs.
-- [ ] `changes.ts`: `namedChanges(older, newer)` for `rounded`, `number_changed`, `careful_word_dropped`, `year_dropped`.
-- [ ] `report.ts`: `readTrail(report)` reads the closing block of a research report, cuts addresses at whitespace, rejects bracketed wording, tidies dates, and returns null when the block is missing or broken.
-- [ ] `links.ts`: `candidateLinks(pageUrl, links, near)` drops navigation and social links, puts the links near the highlight first, keeps 10.
+- [x] `text.ts`: `normalise`, `sentences`, `numbers` (digits, number words, percent, million and billion), `years`, `contentWords`.
+- [x] `match.ts`: `findClaim(pageText, claim)` returns the reading (`exact`, `close`, `not_found`) and the page's own sentence.
+- [x] `diff.ts`: `wordDiff(older, newer)` as same, removed and added runs.
+- [x] `changes.ts`: `namedChanges(older, newer)` for `rounded`, `number_changed`, `careful_word_dropped`, `year_dropped`.
+- [x] `report.ts`: `readTrail(report)` reads the closing block of a research report, cuts addresses at whitespace, rejects bracketed wording, tidies dates, and returns null when the block is missing or broken.
+- [x] `links.ts`: `candidateLinks(pageUrl, links, near)` drops navigation and social links, puts the links near the highlight first, keeps 10.
 - [ ] `trail.ts`: `sameAddress`, `mergeSteps`, `orderSteps`, `reachedBy`.
 - [ ] `verdict.ts`: `decide(...)` with the precedence in the design, and which end it reached (the original or the earliest copy).
 - [ ] `fragment.ts`: `sentenceLink(url, sentence)`; PDFs get the plain address.
