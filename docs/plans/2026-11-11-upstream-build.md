@@ -10,8 +10,8 @@ Design: `../specs/2026-11-11-upstream-design.md`. I work through this list in or
 - [x] `changes.ts`: `namedChanges(older, newer)` for `rounded`, `number_changed`, `careful_word_dropped`, `year_dropped`.
 - [x] `report.ts`: `readTrail(report)` reads the closing block of a research report, cuts addresses at whitespace, rejects bracketed wording, tidies dates, and returns null when the block is missing or broken.
 - [x] `links.ts`: `candidateLinks(pageUrl, links, near)` drops navigation and social links, puts the links near the highlight first, keeps 10.
-- [ ] `trail.ts`: `sameAddress`, `mergeSteps`, `orderSteps`, `reachedBy`.
-- [ ] `verdict.ts`: `decide(...)` with the precedence in the design, and which end it reached (the original or the earliest copy).
+- [x] `trail.ts`: `sameAddress`, `mergeSteps`, `orderSteps`, `reachedBy`.
+- [x] `verdict.ts`: `decide(...)` with the precedence in the design, and which end it reached (the original or the earliest copy).
 - [ ] `fragment.ts`: `sentenceLink(url, sentence)`; PDFs get the plain address.
 - [ ] `cite.ts`: `citation(trail)` as plain text and Markdown.
 
