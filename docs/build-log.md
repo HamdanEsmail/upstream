@@ -137,3 +137,5 @@ A trace is now carried by several runs, one after another. The first reads the p
 **A charge that came late.** A small TinyFish charge on my other account reached the wallet some minutes after its run had ended. So the wallet is now read ten minutes after the trail is done, not one. And a trace that breaks after its deep search has started is booked all the same: before, such a run was never looked at again.
 
 One limit remains. A charge that reaches the wallet later than ten minutes after the trail is done is not seen, and neither is a search that is given up after 30 minutes and completes later.
+
+It is live. To see the hand-overs on the real platform I built one test trail on the live site from a search that had already finished, under a throwaway sentence. Cloudflare's list showed its four runs, one after another: the first, `-wait-0`, `-check-0` and `-book`. The trail came out with the same steps and verdict as the one on the first page. I took it off the first page at once and removed it afterwards. What this does not show is a trace that needs more than 50 requests: that comes with the first slow search.
