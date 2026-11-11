@@ -115,6 +115,7 @@ function Facts({ doc }: { doc: TrailDocument }) {
   const how = !oldest ? "" : oldest.reading === "offline" ? "the earliest step, known only as quoted" : confirmed(oldest) ? "the earliest step confirmed" : "the earliest step, not confirmed";
   const source = oldest ? dateSourceWords(oldest.dateSource) : null;
   const notes = doc.steps.reduce((n, s) => n + s.notes.length, 0);
+  const pages = doc.progress.pagesRead;
   return (
     <dl class="facts">
       <div>
@@ -140,10 +141,18 @@ function Facts({ doc }: { doc: TrailDocument }) {
         </dt>
         <dd>named by comparing the sentences</dd>
       </div>
-      <div>
-        <dt>{doc.seconds === null ? "" : duration(doc.seconds)}</dt>
-        <dd>{doc.progress.pagesRead > 0 ? `${doc.progress.pagesRead} pages read by the deep search` : "following links only"}</dd>
-      </div>
+      {doc.seconds !== null ? (
+        <div>
+          <dt>{duration(doc.seconds)}</dt>
+          <dd>{pages > 0 ? `${pages} pages read by the deep search` : "following links only"}</dd>
+        </div>
+      ) : pages > 0 ? (
+        // No time is known for a trail built from a deep search that had already finished.
+        <div>
+          <dt>{`${pages} ${pages === 1 ? "page" : "pages"}`}</dt>
+          <dd>read by the deep search</dd>
+        </div>
+      ) : null}
     </dl>
   );
 }

@@ -21,6 +21,8 @@ export async function adoptTrace(env: Env, input: AdoptInput, now: Date, start: 
     now,
     async (id) => {
       // With the run already named, the trace skips starting one and goes straight to reading it.
+      // The run is stamped with the trace's own first instant: that is how the trail is known
+      // to be built from a finished run, and why it states no time taken (document.ts).
       await updateTrace(env.DB, id, { researchRunId: runId, researchAccount: account, researchStartedAt: now.toISOString() });
       await setFeatured(env.DB, id, true);
       await start(id);

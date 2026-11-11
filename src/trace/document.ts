@@ -49,7 +49,7 @@ export type TrailDocument = {
   summary: string | null;
   error: string | null;
   progress: { pagesRead: number; latestHosts: string[]; startedAt: string; deepStartedAt: string | null };
-  /** Seconds from start to finish; null while running. */
+  /** Seconds from start to finish; null while running, and on a trail built from a deep search that had already finished. */
   seconds: number | null;
   steps: DocumentStep[];
   /** Changes the deep search described that code cannot check. */
@@ -162,6 +162,10 @@ export async function buildDocument(env: Env, id: string): Promise<TrailDocument
   const [steps, changes, events] = await Promise.all([getSteps(env.DB, id), getChanges(env.DB, id), getEvents(env.DB, id, 8)]);
   const url = `${env.PUBLIC_BASE_URL.replace(/\/$/, "")}/t/${trace.id}`;
   const running = trace.status !== "done" && trace.status !== "failed";
+  // A trail built from a deep search that had already finished (adopt.ts) carries the run from
+  // its first instant. From start to finish it took only the re-reading, and giving that time
+  // beside the search's page count would pass it off as the time the search took.
+  const rebuilt = trace.researchStartedAt !== null && trace.researchStartedAt === trace.createdAt;
 
   // The citation points where the verdict rests: the earliest dated step that was confirmed.
   // With no dated one, the last confirmed step; with none confirmed, the last step.
@@ -192,7 +196,7 @@ export async function buildDocument(env: Env, id: string): Promise<TrailDocument
     summary: trace.summary,
     error: trace.error,
     progress: { pagesRead: trace.pagesRead, latestHosts: trace.latestHosts, startedAt: trace.createdAt, deepStartedAt: trace.researchStartedAt },
-    seconds: trace.finishedAt === null ? null : Math.round((Date.parse(trace.finishedAt) - Date.parse(trace.createdAt)) / 1000),
+    seconds: trace.finishedAt === null || rebuilt ? null : Math.round((Date.parse(trace.finishedAt) - Date.parse(trace.createdAt)) / 1000),
     steps: steps.map((s, i) => ({
       position: i,
       url: s.url,

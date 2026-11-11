@@ -249,10 +249,33 @@ describe("what a trail page claims", () => {
     await finished("t1");
     expect(await (await call("/t/t1")).text()).not.toContain("Fetch and Research");
     await finished("t7");
-    await updateTrace(env.DB, "t7", { researchRunId: "run-7", researchAccount: "main", researchStartedAt: NOW, pagesRead: 21 });
+    await updateTrace(env.DB, "t7", { researchRunId: "run-7", researchAccount: "main", researchStartedAt: "2026-11-11T06:30:04.000Z", pagesRead: 21, finishedAt: "2026-11-11T06:35:17.000Z" });
     const html = await (await call("/t/t7")).text();
     expect(html).toContain("TinyFish Fetch and Research");
+    expect(html).toContain("<dt>5 min 17 s</dt>");
     expect(html).toContain("21 pages read by the deep search");
+  });
+
+  it("gives no time on a trail built from a deep search that had already finished", async () => {
+    const res = await call("/api/admin/adopt", json({ page_url: PAGE, text: TEXT, research_run_id: "run-9", account: "second" }, { authorization: "Bearer test-admin" }));
+    const { id } = (await res.json()) as { id: string };
+    const made = await getTrace(env.DB, id);
+    // Building the trail from the finished run took 39 seconds. That is not how long the search took.
+    await saveSteps(env.DB, id, [step({})]);
+    await updateTrace(env.DB, id, {
+      status: "done",
+      verdict: "not_settled",
+      reached: "nothing",
+      summary: "Nothing could be confirmed.",
+      pagesRead: 26,
+      finishedAt: new Date(Date.parse(made!.createdAt) + 39_000).toISOString(),
+    });
+    expect(((await (await call(`/api/traces/${id}`)).json()) as { seconds: number | null }).seconds).toBeNull();
+    const html = await (await call(`/t/${id}`)).text();
+    expect(html).toContain("<dt>26 pages</dt>");
+    expect(html).toContain("<dd>read by the deep search</dd>");
+    expect(html).not.toContain("39 s");
+    expect(html).toContain("TinyFish Fetch and Research");
   });
 });
 
