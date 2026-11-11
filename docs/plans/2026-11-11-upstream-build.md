@@ -17,14 +17,14 @@ Design: `../specs/2026-11-11-upstream-design.md`. I work through this list in or
 
 ## 2. Reading the web (`src/tinyfish/`, `src/archive.ts`)
 
-- [ ] `client.ts`: one place that adds the key, records spend, and turns failures into typed errors.
-- [ ] `fetch.ts`: `readPages(urls)` for up to 10 addresses with links, dates and authors.
-- [ ] `research.ts`: `startResearch`, `readResearch` (status, pages read so far, the finished report).
-- [ ] `archive.ts`: `savedCopy(url, nearDate)` and `firstSeen(url)`.
+- [x] `client.ts`: one place that adds the key for the chosen account and turns failures into typed errors. Spend is recorded where a paid run is started.
+- [x] `fetch.ts`: `readPages(urls)` for up to 10 addresses with links, dates and authors.
+- [x] `research.ts`: `startResearch`, `readResearch` (status, pages read so far, the finished report).
+- [x] `archive.ts`: `savedCopy(url, nearDate)` and `firstSeen(url)`.
 
 ## 3. A trace (`src/trace/`, D1, Workflow)
 
-- [ ] Migrations for `traces`, `steps`, `changes`, `events`, `spend`, `limits`.
+- [x] Migrations for `traces`, `steps`, `changes`, `events`, `spend`, `limits`.
 - [ ] `create.ts`: validate, reuse an identical claim, apply the visitor and daily limits, start the Workflow.
 - [ ] `follow.ts`: read the page, then follow links up to five steps deep.
 - [ ] `deep.ts`: start the research run (free runs first, daily cap), poll with sleeps, record progress.
