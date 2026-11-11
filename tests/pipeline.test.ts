@@ -58,6 +58,9 @@ type World = {
   /** Answers to successive reads of the research run. */
   runStates: unknown[];
   startStatus: number;
+  /** What the count of today's runs and the read of the run answer with; 200 unless a test breaks them. */
+  listStatus: number;
+  runStatus: number;
   archive: Record<string, { copy: string; timestamp: string } | undefined>;
   fetched: string[][];
   startedWith: string[];
@@ -72,6 +75,8 @@ function world(over: Partial<World> = {}): World {
       { status: "COMPLETED", evidence: [{ url: AGENCY }, { url: STUDY }, { url: START }], deep_result: { result: report(trail()) } },
     ],
     startStatus: 200,
+    listStatus: 200,
+    runStatus: 200,
     archive: {},
     fetched: [],
     startedWith: [],
@@ -99,6 +104,7 @@ function world(over: Partial<World> = {}): World {
     url: /agent\.tinyfish\.ai\/v1\/research-run\?/,
     times: Infinity,
     reply: (req) => {
+      if (w.listStatus !== 200) return Response.json({ error: { code: "INVALID_INPUT" } }, { status: w.listStatus });
       const used = w.runsToday[req.headers.get("X-API-Key") ?? ""] ?? 0;
       return Response.json({ data: Array.from({ length: used }, () => ({ status: "COMPLETED" })) });
     },
@@ -117,7 +123,7 @@ function world(over: Partial<World> = {}): World {
     method: "GET",
     url: "https://agent.tinyfish.ai/v1/research-run/run-1",
     times: Infinity,
-    reply: () => Response.json(w.runStates[Math.min(reads++, w.runStates.length - 1)]),
+    reply: () => (w.runStatus === 200 ? Response.json(w.runStates[Math.min(reads++, w.runStates.length - 1)]) : Response.json({ error: { code: "FORBIDDEN" } }, { status: w.runStatus })),
   });
   fetchMock.intercept({
     method: "GET",
@@ -265,6 +271,66 @@ describe("which deep search a trace gets", () => {
     await newTrace();
     await runTrace(env, "t1", fakeStep(), clock);
     expect(await getTrace(env.DB, "t1")).toMatchObject({ status: "done", verdict: "not_settled" });
+  });
+});
+
+describe("never spending by accident", () => {
+  it("starts no deep search, and pays for none, when today's runs could not be counted", async () => {
+    const w = world({ listStatus: 500 });
+    await newTrace();
+    await runTrace(env, "t1", fakeStep(), clock);
+    expect(w.startedWith).toEqual([]);
+    expect(await countOf(env.DB, "all", "research:paid")).toBe(0);
+    expect(await getTrace(env.DB, "t1")).toMatchObject({ status: "done", verdict: "not_settled", spendUsd: 0, researchRunId: null });
+    expect((await getEvents(env.DB, "t1", 50)).map((e) => e.message)).toContain(
+      "Today's deep-search allowance could not be checked, so none was started. This trail comes from following links only.",
+    );
+  });
+
+  it("keeps the run it started even when the bookkeeping after it fails, so a retry cannot start a second one", async () => {
+    const w = world();
+    await newTrace();
+    await env.DB.prepare("ALTER TABLE spend RENAME TO spend_away").run();
+    try {
+      await runTrace(env, "t1", fakeStep(), clock);
+    } finally {
+      await env.DB.prepare("ALTER TABLE spend_away RENAME TO spend").run();
+    }
+    expect(w.startedWith).toHaveLength(1);
+    expect(await getTrace(env.DB, "t1")).toMatchObject({ status: "done", researchRunId: "run-1", verdict: "changed_on_the_way" });
+  });
+
+  it("stops waiting at once when the run cannot be read at all", async () => {
+    world({ runStatus: 403 });
+    await newTrace();
+    const step = fakeStep();
+    await runTrace(env, "t1", step, clock);
+    expect(step.names.filter((n) => n.startsWith("wait"))).toHaveLength(1);
+    expect(await getTrace(env.DB, "t1")).toMatchObject({ status: "done", verdict: "not_settled" });
+  });
+});
+
+describe("one bad page", () => {
+  it("does not sink the trail: the step is kept as unreadable and the rest carries on", async () => {
+    world();
+    await newTrace();
+    const step = fakeStep();
+    const flaky: TraceStep = { do: (name, fn) => (name === "check 3" ? Promise.reject(new Error("exceeded CPU")) : step.do(name, fn)), sleep: step.sleep };
+    await runTrace(env, "t1", flaky, clock);
+    const trace = await getTrace(env.DB, "t1");
+    expect(trace).toMatchObject({ status: "done", verdict: "changed_on_the_way" });
+    expect((await getSteps(env.DB, "t1"))[2]).toMatchObject({ url: STUDY, reading: "unreadable", wording: null });
+    expect((await getEvents(env.DB, "t1", 50)).map((e) => e.message)).toContain("Checked journal.example: the page could not be processed.");
+  });
+
+  it("does not sink the trail when a link cannot be followed", async () => {
+    world();
+    await newTrace();
+    const step = fakeStep();
+    const flaky: TraceStep = { do: (name, fn) => (name.startsWith("follow") ? Promise.reject(new Error("exceeded CPU")) : step.do(name, fn)), sleep: step.sleep };
+    await runTrace(env, "t1", flaky, clock);
+    expect(await getTrace(env.DB, "t1")).toMatchObject({ status: "done", verdict: "changed_on_the_way" });
+    expect((await getSteps(env.DB, "t1")).map((s) => s.url)).toEqual([START, AGENCY, STUDY]);
   });
 });
 

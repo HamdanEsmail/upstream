@@ -47,6 +47,34 @@ export async function loadProposed(env: Env, traceId: string, now: string): Prom
   return kept.steps.length;
 }
 
+/**
+ * Puts a proposed step aside as unreadable, without reading anything. Used when checking it
+ * failed outright, so that one bad page costs one step and not the whole trail.
+ */
+export async function skipProposed(env: Env, traceId: string, index: number, now: string): Promise<void> {
+  const trace = await getTrace(env.DB, traceId);
+  const p = trace ? proposedOf(trace)?.steps[index] : undefined;
+  if (!p) return;
+  const site = p.url === null ? p.publisher : siteName(p.url);
+  await stageStep(env.DB, traceId, index, {
+    url: p.url,
+    publisher: p.publisher !== "" ? p.publisher : siteName(p.url),
+    title: null,
+    date: p.date,
+    dateSource: p.date ? "research" : null,
+    wording: null,
+    reading: p.url === null ? "offline" : "unreadable",
+    readFrom: null,
+    archiveUrl: null,
+    reachedBy: "search",
+    namesSource: p.namesSource,
+    quotedBy: null,
+    links: [],
+    readAt: now,
+  });
+  await addEvent(env.DB, traceId, `Checked ${site}: the page could not be processed.`, now);
+}
+
 /** Checks the proposed step at `index` and puts the result aside for the finish. */
 export async function checkProposed(env: Env, traceId: string, index: number, now: string): Promise<void> {
   const trace = await getTrace(env.DB, traceId);

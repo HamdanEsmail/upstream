@@ -10,21 +10,24 @@ import { addEvent, countOf, getSteps, getTrace, giveBack, recordSpend, takeSlot,
 
 type Slot = { account: Account; day: string; name: string; costUsd: number };
 
-/** Takes a free run on `account` if one is left today, counting runs made outside Upstream too. */
-async function freeSlot(env: Env, account: Account, day: string): Promise<Slot | null> {
-  if (account === "second" && !env.TINYFISH_API_KEY_2) return null;
+/**
+ * Takes a free run on `account` if one is left today, counting runs made outside Upstream
+ * too. `counted` is false when TinyFish would not say how many runs were made today.
+ */
+async function freeSlot(env: Env, account: Account, day: string): Promise<{ slot: Slot | null; counted: boolean }> {
+  if (account === "second" && !env.TINYFISH_API_KEY_2) return { slot: null, counted: true };
   let used: number;
   try {
     used = await runsToday(env, account, day);
   } catch (err) {
-    if (err instanceof TinyFishError) return null; // unknown is treated as none left
+    if (err instanceof TinyFishError) return { slot: null, counted: false };
     throw err;
   }
   const name = `research:${account}`;
   const mine = await countOf(env.DB, day, name);
   // Runs this account made elsewhere today leave fewer free ones for Upstream.
   const limit = FREE_RESEARCH_RUNS_PER_DAY - Math.max(0, used - mine);
-  return (await takeSlot(env.DB, day, name, limit)) ? { account, day, name, costUsd: 0 } : null;
+  return { slot: (await takeSlot(env.DB, day, name, limit)) ? { account, day, name, costUsd: 0 } : null, counted: true };
 }
 
 /** Takes one paid run from the reserve, if the reserve still has room for it. */
@@ -42,9 +45,17 @@ export async function startDeep(env: Env, traceId: string, now: Date): Promise<{
   const stamp = now.toISOString();
   const day = stamp.slice(0, 10);
 
-  const slot = (await freeSlot(env, "main", day)) ?? (await freeSlot(env, "second", day)) ?? (await paidSlot(env));
+  const main = await freeSlot(env, "main", day);
+  const second = main.slot === null ? await freeSlot(env, "second", day) : { slot: null, counted: true };
+  const counted = main.counted && second.counted;
+  // A paid run is taken only when both accounts said, in so many words, that their free runs are used.
+  // Not knowing is never a reason to spend.
+  const slot = main.slot ?? second.slot ?? (counted ? await paidSlot(env) : null);
   if (slot === null) {
-    await addEvent(env.DB, traceId, "Today's deep searches are used up. This trail comes from following links only; the deep search is back at midnight UTC.", stamp);
+    const why = counted
+      ? "Today's deep searches are used up. This trail comes from following links only; the deep search is back at midnight UTC."
+      : "Today's deep-search allowance could not be checked, so none was started. This trail comes from following links only.";
+    await addEvent(env.DB, traceId, why, stamp);
     return { started: false };
   }
 
@@ -59,14 +70,20 @@ export async function startDeep(env: Env, traceId: string, now: Date): Promise<{
     return { started: false };
   }
 
-  await recordSpend(env.DB, "research", slot.costUsd, runId, stamp);
+  // The run id is saved before anything else: if this step were tried again, it must find
+  // the run and not start a second one. The bookkeeping after it may fail without harm.
   await updateTrace(env.DB, traceId, { status: "searching", researchRunId: runId, researchAccount: slot.account, researchStartedAt: stamp, spendUsd: slot.costUsd });
-  await addEvent(
-    env.DB,
-    traceId,
-    slot.costUsd > 0 ? `Started the deep search. This one is paid for from the reserve ($${slot.costUsd}).` : "Started the deep search. It usually takes 4 to 6 minutes.",
-    stamp,
-  );
+  try {
+    await recordSpend(env.DB, "research", slot.costUsd, runId, stamp);
+    await addEvent(
+      env.DB,
+      traceId,
+      slot.costUsd > 0 ? `Started the deep search. This one is paid for from the reserve ($${slot.costUsd}).` : "Started the deep search. It usually takes 4 to 6 minutes.",
+      stamp,
+    );
+  } catch {
+    console.error("deep search started; a note about it could not be written");
+  }
   return { started: true };
 }
 
@@ -80,8 +97,13 @@ export async function pollDeep(env: Env, traceId: string, now: string): Promise<
   try {
     state = await readResearch(env, trace.researchAccount, trace.researchRunId);
   } catch (err) {
-    if (err instanceof TinyFishError) return "running"; // a passing fault: look again next time
-    throw err;
+    if (!(err instanceof TinyFishError)) throw err;
+    // A refusal (not found, not allowed) will not get better by waiting. Anything else may pass.
+    if (err.status >= 400 && err.status < 500 && err.status !== 429) {
+      await giveUpDeep(env, traceId, now);
+      return "failed";
+    }
+    return "running";
   }
   if (state.status === "completed") {
     await updateTrace(env.DB, traceId, { status: "checking", report: state.report, pagesRead: state.pagesRead, latestHosts: state.latestHosts });

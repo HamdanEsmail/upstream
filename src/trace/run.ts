@@ -3,7 +3,7 @@
 // per step. The Workflow runs these steps; tests run them with a stand-in.
 import { FOLLOW_DEPTH, FOLLOW_PAGES_PER_TRY, POLL_MS, POLL_TURNS } from "../core/limits";
 import type { Env } from "../env";
-import { checkProposed, loadProposed } from "./check";
+import { checkProposed, loadProposed, skipProposed } from "./check";
 import { giveUpDeep, pollDeep, startDeep } from "./deep";
 import { finishTrace } from "./finish";
 import { followOnce, readStart } from "./follow";
@@ -27,7 +27,14 @@ export async function runTrace(env: Env, traceId: string, step: TraceStep, clock
       let next: string[] | null = null;
       for (let from = 0; from < Math.min(candidates.length, LINKS_PER_HOP) && next === null; from += FOLLOW_PAGES_PER_TRY) {
         const batch = candidates.slice(from, from + FOLLOW_PAGES_PER_TRY);
-        const hop = await step.do(`follow ${depth}.${from / FOLLOW_PAGES_PER_TRY + 1}`, () => followOnce(env, traceId, batch, stamp()));
+        // A try that fails outright (a page too heavy to process) ends the following, not the trace.
+        let hop: { found: boolean; candidates: string[] };
+        try {
+          hop = await step.do(`follow ${depth}.${from / FOLLOW_PAGES_PER_TRY + 1}`, () => followOnce(env, traceId, batch, stamp()));
+        } catch {
+          hop = { found: false, candidates: [] };
+          from = LINKS_PER_HOP;
+        }
         if (hop.found) next = hop.candidates;
       }
       if (next === null) break;
@@ -45,7 +52,14 @@ export async function runTrace(env: Env, traceId: string, step: TraceStep, clock
       if (state === "running") await step.do("give up the deep search", () => giveUpDeep(env, traceId, stamp()));
       if (state === "completed") {
         const count = await step.do("read the report", () => loadProposed(env, traceId, stamp()));
-        for (let i = 0; i < count; i++) await step.do(`check ${i + 1}`, () => checkProposed(env, traceId, i, stamp()));
+        for (let i = 0; i < count; i++) {
+          // One page that cannot be processed costs one step, not the whole trail.
+          try {
+            await step.do(`check ${i + 1}`, () => checkProposed(env, traceId, i, stamp()));
+          } catch {
+            await step.do(`skip ${i + 1}`, () => skipProposed(env, traceId, i, stamp()));
+          }
+        }
       }
     }
 

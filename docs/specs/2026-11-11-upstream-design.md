@@ -58,7 +58,7 @@ Verified on 2026-11-11 with free TinyFish calls; scripts and saved responses are
 - The CDX search returns the first time a page was saved.
 
 **Cloudflare Workers free plan**
-- 50 outside requests per invocation and little CPU time per step, so each Workflow step does one small thing, and one Fetch call carries up to 10 addresses.
+- 50 outside requests per invocation and little CPU time per step, so each Workflow step does one small thing, and one Fetch call carries up to 10 addresses. Matching a claim against a page was timed on real pages and made cheap: 2 to 3 ms for an ordinary page, 9 ms for a 157,000-character PDF. Pages are read up to 120,000 characters.
 - No cron slot is needed. The Workflow sleeps and checks back.
 
 ## 4. Architecture
@@ -70,10 +70,10 @@ One Cloudflare Worker (Hono, hono/jsx, D1, Workflows) on my first Cloudflare acc
 1. **Start.** `POST /api/traces` with the page address, the highlighted text and, from the extension, the links that sit in the same paragraph. An identical claim on the same page returns the trail that already exists.
 2. **Read the page.** Fetch the page with its links. Find the highlighted sentence on it. This is step 1 of the trail.
 3. **Follow the links.** Take the links near the highlight first, then the article's other outside links, drop navigation and social links, and fetch up to 10 in one call. A linked page that states the claim becomes the next step, marked *linked*. Repeat from that page, up to five steps deep. This pass takes seconds and the trail is already on screen.
-4. **Search wider.** Start a TinyResearch run with the page, the highlight and the steps found so far. While it runs, the Workflow checks every 20 seconds and records how many pages it has read, so the panel can say so.
-5. **Check what it proposes.** Read the closing `json` trail. Fetch every proposed step. Keep the sentence Upstream finds on the page; if the live page lacks it, try the Internet Archive copy nearest the step's date.
-6. **Put the trail together.** Merge both engines' steps by address, order them from the highlighted page back to the earliest, and work out for each step how it was reached and how sure the reading is.
-7. **Compare and decide.** Compare neighbouring sentences word by word, name the changes, and set the verdict.
+4. **Search wider.** Start a TinyResearch run with the page, the highlight and the steps found so far. While it runs, the Workflow checks every 15 seconds and records how many pages it has read, so the panel can say so.
+5. **Check what it proposes.** Read the closing `json` trail. Fetch every proposed step, one page per Workflow step. Keep the sentence Upstream finds on the page; if the live page lacks it, try the Internet Archive copy nearest the step's date. A source that cannot be read itself (only in print, or given as a site's front page) is credited to an earlier step that quotes it word for word. A page that cannot be processed at all is kept as unreadable; it costs one step, not the trail.
+6. **Put the trail together.** Merge both engines' steps by address, order them from the highlighted page back to the earliest, and work out for each step how it was reached and how sure the reading is. A step with no date sits with the dated step that follows it, so it never ends the trail as if it were the oldest.
+7. **Compare and decide.** Compare the earliest confirmed, dated sentence with the highlighted one, and neighbouring sentences where one restates the other; name the changes, and set the verdict. A quotation's trail carries no notes about figures or years: its pages discuss the quote rather than restate it.
 
 ### 4.2 What a step records
 
@@ -116,14 +116,17 @@ The verdict line always says which it reached: the original, or the earliest cop
 | `POST /api/traces` | Start a trace, or return the existing one |
 | `GET /api/traces/:id` | The trail as JSON: status, progress, steps, changes, verdict |
 | `GET /t/:id` | The public trail page |
-| `GET /panel/:id` | The same trail laid out for the side panel |
+| `GET /api/traces/:id/fragment` | The trail's markup alone, which the side panel shows |
+| `POST /trace` | The form on the first page; redirects to the trail |
 | `GET /` | Trace a claim, traced so far, get the extension, how it works |
 | `GET /api/stats` | Traces, steps read, spend |
 | `POST /api/admin/adopt` | Admin only: build a trail from a research run that already finished, by run id and account |
+| `POST /api/admin/traces/:id/feature` | Admin only: list a trail on the first page, or take it off |
+| `DELETE /api/admin/traces/:id` | Admin only: remove a trail |
 
 ### 4.6 The extension
 
-Manifest V3. Permissions: `activeTab`, `scripting`, `contextMenus`, `sidePanel`, `storage`, and the service's own address. It reads the page only when I click, and sends only the highlighted text, the page address and the links in that paragraph. The side panel shows the service's panel page, so the trail looks the same everywhere and a fix does not need a new install. When a trace finishes, the highlighted sentence on the page gets an underline and the verdict beside it.
+Manifest V3. Permissions: `activeTab`, `scripting`, `contextMenus`, `sidePanel`, `storage`, and the service's own address. It reads the page only when I click, and sends only the highlighted text, the page address and the links in that paragraph. The side panel shows the trail markup the service draws, so the trail looks the same everywhere and a fix does not need a new install. When a trace finishes, the highlighted sentence on the page gets an underline and the verdict beside it.
 
 ### 4.7 While it waits
 
@@ -135,8 +138,9 @@ Its own world, "The Line": the trail is a river drawn like a line map, one stop 
 
 ## 5. Data model (D1)
 
-- `traces`: id, page_url, text, text_key (for reuse), status, verdict, reached (original or earliest copy), summary, research_run_id, research_account, spend_usd, created_at, finished_at, error.
-- `steps`: trace_id, position, url, publisher, title, date, date_source, wording, reading, read_from, archive_url, reached_by, names_source, kind, read_at.
+- `traces`: id, page_url, text, text_key (for reuse), near (the links in the highlighted paragraph), status, verdict, reached (original or earliest copy), summary, research_run_id, research_account, pages_read and latest_hosts (for the waiting display), report, proposed, spend_usd, featured, created_at, finished_at, error.
+- `steps`: trace_id, position, url, publisher, title, date, date_source, wording, reading, read_from, archive_url, reached_by, names_source, quoted_by, links, read_at.
+- `staged_steps`: the steps the deep search proposed, each checked on its own, waiting to be merged.
 - `changes`: trace_id, from_position, to_position, kind, detail, basis (code or research run).
 - `events`: trace_id, at, message. The progress log the panel reads.
 - `spend`: at, kind, amount_usd, ref.
@@ -145,8 +149,9 @@ Its own world, "The Line": the trail is a river drawn like a line map, one stop 
 ## 6. Security, privacy and spend
 
 - The TinyFish keys live only in the Worker's secrets. The extension holds no key.
-- Starting a trace is public, so it is limited: text of 12 to 600 characters, a public http or https address, a small number of new traces per visitor per hour and per day overall.
-- Deep searches are capped per day. Free runs are used first. When the day's allowance is used, a trace still runs the link follower and says plainly that the deep search is unavailable until the next day. The size of the cap is left open in section 10.
+- Starting a trace is public, so it is limited: text of 12 to 600 characters, a public http or https address, 6 new traces per visitor per hour and 40 a day overall. Upstream reads at most 500 pages a day, because my other projects read with the same free allowance, and starts no new trace when fewer than 40 reads are left.
+- Only trails I choose are listed on the first page. A visitor's own trace is reachable by its link alone.
+- Deep searches: free runs are used first, on my main account and then on my second. After that a run is paid for from a fixed reserve (`PAID_DEEP_BUDGET_USD`, $6 in all). When both are used, a trace still runs the link follower and says plainly that the deep search is back the next day. If TinyFish will not say how many runs were made today, no run is started: not knowing is never a reason to spend. The run id is saved before anything else, so a retried step cannot start a second run.
 - Admin routes need a token.
 - Nothing about a visitor is stored beyond the claim and the page address they chose to trace.
 
@@ -172,7 +177,6 @@ Vitest in the Workers pool. Tests never touch the network; TinyFish and the Inte
 
 ## 10. Left open in this design
 
-- The daily cap on paid deep searches and the total I am willing to spend.
 - Whether the README names the well-known people and organisations that demo claims are about.
 - A "check this page" button that marks every number in an article as linked or not. Only after everything above works.
 - Offering the extension through the Chrome Web Store as well as a zip.

@@ -100,9 +100,12 @@ export function HowPage({ reserveUsd }: { reserveUsd: number }) {
       <h2>Limits and cost</h2>
       <div class="prose">
         <p>
-          Following links is free. The deep search is free {FREE_RESEARCH_RUNS_PER_DAY * 2} times a day; after that one costs ${RESEARCH_RUN_USD}, paid from a reserve of $
-          {reserveUsd} in total. When the free runs and the reserve are used, a trace still follows links and says that the deep search is back at midnight UTC. A trail
-          that exists is never traced twice: the same sentence on the same page opens the saved trail.
+          Following links is free. The deep search is free {FREE_RESEARCH_RUNS_PER_DAY * 2} times a day.{" "}
+          {reserveUsd > 0
+            ? `After that one costs $${RESEARCH_RUN_USD}, paid from a reserve of $${reserveUsd} in total. When the free runs and the reserve are used, a`
+            : "When they are used, a"}{" "}
+          trace still follows links and says that the deep search is back at midnight UTC. A trail that exists is never traced twice: the same sentence on the same page
+          opens the saved trail.
         </p>
         <p>
           One visitor can start {TRACES_PER_VISITOR_PER_HOUR} new traces an hour, and all visitors together {TRACES_PER_DAY} a day.
