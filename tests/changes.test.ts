@@ -64,3 +64,20 @@ describe("namedChanges and careful words of the same kind", () => {
     expect(namedChanges("It may take up to 21 days.", "It takes about 21 days.")).toContainEqual({ kind: "careful_word_dropped", detail: 'dropped "may", "up to"' });
   });
 });
+
+describe("namedChanges: a rounded figure and a different figure", () => {
+  it("calls a figure of the same precision a changed figure, not a rounded one", () => {
+    expect(namedChanges("Approximately 1.16 million people die each year on the roads.", "Approximately 1.19 million people die each year on the roads.")).toEqual([
+      { kind: "number_changed", detail: "1.16 million became 1.19 million" },
+    ]);
+    expect(namedChanges("The survey found 87 percent.", "The survey found 88 percent.")).toEqual([{ kind: "number_changed", detail: "87 percent became 88 percent" }]);
+  });
+
+  it("calls it rounded when the newer figure is the older one at a coarser precision, up or down", () => {
+    expect(namedChanges("The survey found 87 percent.", "The survey found 90 percent.")).toEqual([{ kind: "rounded", detail: "87 percent became 90 percent" }]);
+    expect(namedChanges("It holds 1,234 seats.", "It holds 1,200 seats.")).toEqual([{ kind: "rounded", detail: "1,234 became 1,200" }]);
+    expect(namedChanges("It holds 1,266 seats.", "It holds 1,300 seats.")).toEqual([{ kind: "rounded", detail: "1,266 became 1,300" }]);
+    // The same precision, a different number: that is not rounding.
+    expect(namedChanges("It holds 1,234 seats.", "It holds 1,250 seats.")).toEqual([{ kind: "number_changed", detail: "1,234 became 1,250" }]);
+  });
+});

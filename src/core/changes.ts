@@ -26,6 +26,19 @@ function significantDigits(value: number): number {
   return Math.max(1, digits.length);
 }
 
+/**
+ * True when `newer` is `older` written to fewer significant digits, rounded up or down:
+ * 87 as 90, 1,234 as 1,200. A figure of the same precision (1.16 million and 1.19 million)
+ * is a different figure, not a rounded one.
+ */
+function roundedFrom(older: number, newer: number): boolean {
+  const digits = significantDigits(newer);
+  if (digits >= significantDigits(older) || older === 0) return false;
+  const step = 10 ** (Math.floor(Math.log10(Math.abs(older))) - digits + 1);
+  const steps = newer / step;
+  return Math.abs(steps - Math.round(steps)) < 1e-9 && Math.abs(newer - older) < step;
+}
+
 function numberChanges(older: string, newer: string): Change[] {
   const sameClass = (a: Quantity, b: Quantity) => (a.unit === "percent") === (b.unit === "percent");
   let was = numbers(older);
@@ -41,7 +54,7 @@ function numberChanges(older: string, newer: string): Change[] {
   const out: Change[] = [];
   for (const n of [...now]) {
     const near = was.find((o) => sameClass(o, n) && Math.abs(o.value - n.value) / Math.max(Math.abs(o.value), Math.abs(n.value)) <= ROUNDING);
-    if (!near || significantDigits(n.value) > significantDigits(near.value)) continue;
+    if (!near || !roundedFrom(near.value, n.value)) continue;
     out.push({ kind: "rounded", detail: `${near.raw} became ${n.raw}` });
     was = was.filter((o) => o !== near);
     now = now.filter((x) => x !== n);
