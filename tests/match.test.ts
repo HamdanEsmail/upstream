@@ -51,3 +51,15 @@ describe("findClaim", () => {
     expect(findClaim("The ferry carries 90 percent of the island's visitors.", "People spend nearly 90 percent of their time indoors").reading).toBe("not_found");
   });
 });
+
+describe("findClaim on long pages", () => {
+  it("still finds a close sentence when many unrelated sentences surround it", () => {
+    const filler = Array.from({ length: 400 }, (_, i) => `The tide table for day ${i} lists two high waters and a low one.`).join(" ");
+    const page = filler + " Researchers found that people are spending most of their days inside buildings. " + filler;
+    expect(findClaim(page, "People spend most of their day inside a building").reading).toBe("close");
+  });
+
+  it("finds a word that holds the letter d, which an early draft of the shortcut skipped", () => {
+    expect(findClaim("Harbour data doubled during the decade, the board said.", "The board said harbour data doubled in a decade").reading).toBe("close");
+  });
+});

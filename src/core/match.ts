@@ -64,22 +64,54 @@ function spanned(list: string[], wanted: string): string | null {
   return from === -1 || to === -1 ? null : list.slice(from, to + 1).join(" ");
 }
 
-/** Looks for `claim` in `pageText` and returns the page's own sentence that states it. */
+/**
+ * Pages longer than this are read up to here. Matching a page must fit in the few
+ * milliseconds of processing a free Cloudflare Worker step is allowed.
+ */
+const MOST_CHARS = 120_000;
+
+/** Short prefixes of the claim's words: a cheap first test before a sentence is scored. */
+function keys(claim: string): string[] {
+  const out = new Set<string>();
+  for (const w of contentWords(claim)) if (w.length >= 3 && !/\d|%/.test(w)) out.add(w.slice(0, 5));
+  return [...out];
+}
+
+/**
+ * Looks for `claim` in `pageText` and returns the page's own sentence that states it.
+ * Cheap tests come first so that a long page costs little: the whole page is checked once
+ * for the exact words, and only sentences sharing words with the claim are scored.
+ */
 export function findClaim(pageText: string, claim: string): Found {
   const wanted = core(claim);
-  const list = sentences(pageText);
+  const text = pageText.length > MOST_CHARS ? pageText.slice(0, MOST_CHARS) : pageText;
+  const list = sentences(text);
   if (wanted.length < 8 || list.length === 0) return { reading: "not_found", sentence: null, score: 0 };
+  const lowered = list.map((s) => s.toLowerCase());
+
+  if (normalise(text).includes(wanted)) {
+    const anchor = (wanted.match(/[a-z]{5,}/g) ?? []).reduce((a, b) => (b.length > a.length ? b : a), "");
+    for (const [i, s] of list.entries()) {
+      if (anchor !== "" && !(lowered[i] as string).includes(anchor)) continue;
+      if (normalise(s).includes(wanted)) return { reading: "exact", sentence: s, score: 1 };
+    }
+    // A claim that runs across sentences is still word for word on the page: return all of them.
+    const across = spanned(list, wanted);
+    if (across !== null) return { reading: "exact", sentence: across, score: 1 };
+  }
 
   const claimStems = stems(claim);
+  const prefixes = keys(claim);
+  const need = prefixes.length >= 4 ? 2 : 1;
   let best: { sentence: string; score: number } | null = null;
-  for (const s of list) {
-    if (normalise(s).includes(wanted)) return { reading: "exact", sentence: s, score: 1 };
+  for (const [i, s] of list.entries()) {
+    const low = lowered[i] as string;
+    let hits = 0;
+    for (const p of prefixes) if (low.includes(p) && ++hits >= need) break;
+    if (prefixes.length > 0 && hits < need) continue;
     const sc = score(claim, claimStems, s);
     if (best === null || sc > best.score) best = { sentence: s, score: sc };
   }
-  // A claim that runs across sentences is still word for word on the page: return all of them.
-  const across = spanned(list, wanted);
-  if (across !== null) return { reading: "exact", sentence: across, score: 1 };
   if (best !== null && best.score >= CLOSE_AT) return { reading: "close", sentence: best.sentence, score: best.score };
   return { reading: "not_found", sentence: null, score: best?.score ?? 0 };
 }
