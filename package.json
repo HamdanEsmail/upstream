@@ -15,7 +15,8 @@
     "typecheck": "tsc --noEmit",
     "check": "tsc --noEmit && vitest run && wrangler deploy --dry-run",
     "migrate:local": "wrangler d1 migrations apply upstream --local",
-    "migrate:remote": "wrangler d1 migrations apply upstream --remote"
+    "migrate:remote": "wrangler d1 migrations apply upstream --remote",
+    "extension": "node scripts/pack-extension.mjs"
   },
   "dependencies": {
     "hono": "4.13.16"

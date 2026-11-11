@@ -121,6 +121,10 @@ describe("the pages", () => {
     expect(html).toContain("It comes from a 2001 survey.");
     expect(html).toContain("26 July 2001");
     expect(html).toContain("Cite it right");
+    expect(html).toContain("the earliest step confirmed");
+    // On a narrow screen the trail comes before the facts and the citation.
+    expect(html.indexOf('class="line"')).toBeGreaterThan(html.indexOf('class="verdict"'));
+    expect(html.indexOf('class="line"')).toBeLessThan(html.indexOf('class="facts"'));
     expect(html).toContain('data-running="false"');
     expect(html).not.toContain("http-equiv");
   });

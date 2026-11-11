@@ -9,8 +9,19 @@ import type { Env } from "../env";
 import { proposedOf } from "./check";
 import { addEvent, clearStaged, getStaged, getSteps, getTrace, saveChanges, saveSteps, updateTrace, type StoredChange, type StoredStep } from "./store";
 
-/** The first two sentences of a summary: the verdict line must be read at a glance. */
-const brief = (summary: string): string => sentences(summary).slice(0, 2).join(" ").slice(0, 420);
+const SUMMARY_MAX = 420;
+
+/**
+ * The verdict line must be read at a glance: at most two whole sentences that fit. A single
+ * sentence that is too long is cut at a word, with an ellipsis to say so.
+ */
+function brief(summary: string): string {
+  const list = sentences(summary).slice(0, 2);
+  const first = list[0] ?? "";
+  if (first.length > SUMMARY_MAX) return first.slice(0, SUMMARY_MAX).replace(/\s+\S*$/, "") + "…";
+  const both = list.join(" ");
+  return both.length <= SUMMARY_MAX ? both : first;
+}
 
 const confirmed = (s: StoredStep): s is StoredStep & { wording: string } => s.wording !== null && (s.reading === "exact" || s.reading === "close" || s.reading === "offline");
 

@@ -41,10 +41,10 @@ Design: `../specs/2026-11-11-upstream-design.md`. I work through this list in or
 
 ## 5. The extension (`extension/`)
 
-- [ ] Manifest, the right-click entry, reading the selection and the links in its paragraph.
-- [ ] The side panel that opens the service's panel page for the new trace.
-- [ ] The underline and verdict on the page when the trace finishes.
-- [ ] A zip that installs with "Load unpacked", and a short install page.
+- [x] Manifest, the right-click entry, reading the selection and the links in its paragraph.
+- [x] The side panel that opens the service's panel page for the new trace.
+- [x] The underline and verdict on the page when the trace finishes.
+- [x] A zip that installs with "Load unpacked", and a short install page.
 
 ## 6. Proof
 

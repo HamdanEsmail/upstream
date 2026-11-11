@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Upstream</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="line.css" />
+    <link rel="stylesheet" href="panel.css" />
+  </head>
+  <body>
+    <header class="top">
+      <a class="mark" id="home" target="_blank" rel="noopener">
+        <svg viewBox="0 0 20 20" aria-hidden="true">
+          <path d="M10 19V6" stroke="#1d6d88" stroke-width="3" fill="none" />
+          <circle cx="10" cy="5" r="3.2" fill="#fff" stroke="#1d6d88" stroke-width="2.6" />
+        </svg>
+        Upstream
+      </a>
+      <a id="full" target="_blank" rel="noopener" hidden>Open the full trail</a>
+    </header>
+    <div id="body">
+      <section class="state">
+        <p class="label">Ready</p>
+        <p class="word">Highlight a sentence</p>
+        <p class="why">Select a claim, a number or a quotation on any page, right-click, and choose “Trace upstream”. The trail appears here.</p>
+      </section>
+    </div>
+    <script src="config.js"></script>
+    <script src="panel.js"></script>
+  </body>
+</html>

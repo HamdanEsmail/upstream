@@ -387,6 +387,29 @@ describe("the summary", () => {
   });
 });
 
+describe("a long summary", () => {
+  const run = async (summary: string) => {
+    world({ runStates: [{ status: "COMPLETED", evidence: [], deep_result: { result: report(trail({ summary })) } }] });
+    await newTrace();
+    await runTrace(env, "t1", fakeStep(), clock);
+    return (await getTrace(env.DB, "t1"))?.summary ?? "";
+  };
+
+  it("keeps only whole sentences that fit", async () => {
+    const first = "The figure comes from a survey " + "of daily life ".repeat(20) + "published in 2001.";
+    const second = "It was then rounded " + "again and again ".repeat(12) + "on the way.";
+    expect(first.length + second.length).toBeGreaterThan(420);
+    expect(await run(first + " " + second)).toBe(first);
+  });
+
+  it("cuts a single over-long sentence at a word and says so with an ellipsis", async () => {
+    const summary = await run("The figure " + "comes from a survey of daily life and ".repeat(20) + "more.");
+    expect(summary.length).toBeLessThanOrEqual(421);
+    expect(summary.endsWith("…")).toBe(true);
+    expect(summary).not.toMatch(/\s…$/);
+  });
+});
+
 describe("a quotation", () => {
   it("gets no notes about figures or years: its trail is about who said it", async () => {
     world({ runStates: [{ status: "COMPLETED", evidence: [], deep_result: { result: report(trail({ verdict: "said_by_someone_else" })) } }] });

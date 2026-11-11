@@ -208,14 +208,27 @@ a:hover {
   grid-template-columns: minmax(0, 1fr);
 }
 
-.side,
-.main {
+/* Three blocks: the claim and verdict, the line of stops, then the facts and the citation.
+   On a narrow screen they follow in that order; on a wide one the line stands beside the rest. */
+.head,
+.main,
+.more {
   padding: 24px var(--gutter);
   min-width: 0;
 }
 
-.side {
+.head {
   border-bottom: var(--edge);
+}
+
+.more {
+  border-top: var(--edge);
+}
+
+.more .facts {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
 }
 
 .claim .quote {
@@ -707,15 +720,31 @@ a:hover {
 
   .trail:not(.panel) {
     grid-template-columns: minmax(360px, 460px) minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+    grid-template-areas: "head line" "more line";
   }
 
-  .trail:not(.panel) .side {
+  .trail:not(.panel) .head {
+    grid-area: head;
     border-bottom: 0;
-    border-right: var(--edge);
-    padding: 40px;
+    padding: 40px 40px 0;
+  }
+
+  .trail:not(.panel) .more {
+    grid-area: more;
+    border-top: 0;
+    padding: 0 40px 40px;
+  }
+
+  .trail:not(.panel) .more .facts {
+    margin-top: 22px;
+    padding-top: 20px;
+    border-top: var(--edge);
   }
 
   .trail:not(.panel) .main {
+    grid-area: line;
+    border-left: var(--edge);
     padding: 40px 48px 40px 56px;
   }
 
@@ -735,8 +764,9 @@ a:hover {
 
 /* ---- the side panel: always one column, a little tighter ---- */
 
-.trail.panel .side,
-.trail.panel .main {
+.trail.panel .head,
+.trail.panel .main,
+.trail.panel .more {
   padding: 18px 16px;
 }
 

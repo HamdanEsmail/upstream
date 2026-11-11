@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "Upstream",
+  "version": "0.1.0",
+  "description": "Highlight a claim on any page and follow it back to where it first appeared.",
+  "minimum_chrome_version": "116",
+  "permissions": ["activeTab", "scripting", "contextMenus", "sidePanel", "storage"],
+  "host_permissions": ["https://upstream.hamdanesmail12-7a9.workers.dev/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "side_panel": {
+    "default_path": "panel.html"
+  },
+  "action": {
+    "default_title": "Open Upstream"
+  },
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  }
+}

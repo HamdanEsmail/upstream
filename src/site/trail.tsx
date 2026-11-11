@@ -106,7 +106,7 @@ function Verdict({ doc }: { doc: TrailDocument }) {
 
 function Facts({ doc }: { doc: TrailDocument }) {
   const beyond = doc.steps.slice(1);
-  const oldest = [...doc.steps].reverse().find((s) => s.date !== null);
+  const oldest = [...beyond].reverse().find((s) => s.date !== null && confirmed(s)) ?? [...doc.steps].reverse().find((s) => s.date !== null);
   const notes = doc.steps.reduce((n, s) => n + s.notes.length, 0);
   return (
     <dl class="facts">
@@ -118,7 +118,10 @@ function Facts({ doc }: { doc: TrailDocument }) {
       </div>
       <div>
         <dt>{oldest ? oldest.datePlain : "No date"}</dt>
-        <dd>the earliest step{oldest && dateSourceWords(oldest.dateSource) ? `, ${dateSourceWords(oldest.dateSource)}` : ""}</dd>
+        <dd>
+          {oldest && confirmed(oldest) ? "the earliest step confirmed" : "the earliest step"}
+          {oldest && dateSourceWords(oldest.dateSource) ? `, ${dateSourceWords(oldest.dateSource)}` : ""}
+        </dd>
       </div>
       <div>
         <dt>
@@ -139,7 +142,7 @@ export function TrailBody({ doc, panel }: { doc: TrailDocument; panel: boolean }
   const cold = done && (doc.verdict === "no_original_source" || doc.verdict === "not_settled");
   return (
     <main class={`trail${panel ? " panel" : ""}`} id="trail" data-id={doc.id} data-running={doc.running ? "true" : "false"}>
-      <div class="side">
+      <div class="head">
         <section class="claim">
           <p class="label">
             The claim, as highlighted on{" "}
@@ -150,16 +153,6 @@ export function TrailBody({ doc, panel }: { doc: TrailDocument; panel: boolean }
           <blockquote class="quote">{quoted(doc.text)}</blockquote>
         </section>
         {doc.running ? <Working doc={doc} /> : <Verdict doc={doc} />}
-        {done ? <Facts doc={doc} /> : null}
-        {done && doc.cite ? (
-          <section class="cite">
-            <p class="label">Cite it right</p>
-            <pre id="cite-text">{doc.cite.plain}</pre>
-            <button class="btn solid" type="button" data-copy="cite-text">
-              Copy this citation
-            </button>
-          </section>
-        ) : null}
       </div>
       <div class="main">
         <p class="label">The trail, from the page you read back to where it started</p>
@@ -191,6 +184,20 @@ export function TrailBody({ doc, panel }: { doc: TrailDocument; panel: boolean }
           and Research · spend on this trace ${doc.spendUsd.toFixed(2)}
         </p>
       </div>
+      {done ? (
+        <div class="more">
+          <Facts doc={doc} />
+          {doc.cite ? (
+            <section class="cite">
+              <p class="label">Cite it right</p>
+              <pre id="cite-text">{doc.cite.plain}</pre>
+              <button class="btn solid" type="button" data-copy="cite-text">
+                Copy this citation
+              </button>
+            </section>
+          ) : null}
+        </div>
+      ) : null}
     </main>
   );
 }
