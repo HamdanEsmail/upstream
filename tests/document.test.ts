@@ -240,3 +240,28 @@ describe("stageWords", () => {
     expect(stageWords("searching", 1, ["a.example"])).toBe("The deep search has read 1 page so far, most recently a.example.");
   });
 });
+
+describe("the citation", () => {
+  it("points at the earliest dated step that was confirmed, as the verdict does, not at an undated step listed after it", async () => {
+    await saveSteps(env.DB, "t1", [
+      step({ reachedBy: "start", date: "2025-12-15", dateSource: "page", wording: "People spend 90 percent of their time indoors." }),
+      step({ url: "https://agency.example/page", publisher: "The Agency", date: "2017-11-02", dateSource: "page", wording: "People spend about 90 percent of their time indoors.", reading: "close" }),
+      step({ url: STUDY, publisher: "Journal of Examples", title: "A survey of daily activity", date: "2001-07-26", dateSource: "page", wording: "People spend an average of 87 percent of their time indoors." }),
+      step({ url: "https://agency.example/old.pdf", publisher: "The Agency", wording: "Studies show that people spend more than 90 percent of their time indoors.", reading: "close" }),
+    ]);
+    await updateTrace(env.DB, "t1", { status: "done", verdict: "changed_on_the_way", reached: "earliest_copy", finishedAt: NOW });
+    const cite = (await buildDocument(env, "t1"))?.cite?.plain ?? "";
+    expect(cite).toContain('Journal of Examples, "A survey of daily activity" (26 July 2001). https://journal.example/study-2001');
+    expect(cite).not.toContain("old.pdf");
+  });
+
+  it("falls back to the last confirmed step when none of them has a date", async () => {
+    await saveSteps(env.DB, "t1", [
+      step({ reachedBy: "start", wording: "People spend 90 percent of their time indoors." }),
+      step({ url: "https://agency.example/page", publisher: "The Agency", wording: "People spend about 90 percent of their time indoors.", reading: "close" }),
+      step({ url: "https://agency.example/old.pdf", publisher: "The Older Agency", wording: "People spend more than 90 percent of their time indoors.", reading: "close" }),
+    ]);
+    await updateTrace(env.DB, "t1", { status: "done", verdict: "changed_on_the_way", reached: "earliest_copy", finishedAt: NOW });
+    expect((await buildDocument(env, "t1"))?.cite?.plain).toContain("The Older Agency (no date). https://agency.example/old.pdf");
+  });
+});

@@ -163,7 +163,11 @@ export async function buildDocument(env: Env, id: string): Promise<TrailDocument
   const url = `${env.PUBLIC_BASE_URL.replace(/\/$/, "")}/t/${trace.id}`;
   const running = trace.status !== "done" && trace.status !== "failed";
 
-  const origin = [...steps].reverse().find((s, k) => k < steps.length - 1 && confirmed(s)) ?? (steps.length > 1 ? steps[steps.length - 1] : undefined);
+  // The citation points where the verdict rests: the earliest dated step that was confirmed.
+  // With no dated one, the last confirmed step; with none confirmed, the last step.
+  const beyond = steps.slice(1);
+  const origin =
+    [...beyond].reverse().find((s) => s.date !== null && confirmed(s)) ?? [...beyond].reverse().find(confirmed) ?? (beyond.length > 0 ? beyond[beyond.length - 1] : undefined);
   const cite =
     trace.status === "done"
       ? citation({

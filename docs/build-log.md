@@ -93,3 +93,9 @@ Preparing the film, I read again what the extension draws on the page when a tra
 Now it looks for the whole sentence first. If the page does not hold it in one piece, it finds the opening words and then the closing words after them, and never stops inside a word. The browser check now asks for the whole sentence to be underlined and the tag to follow it, in four cases: a plain paragraph, one that runs through other elements, a page that words the middle of the sentence differently (so only the opening and closing words can be found), and a page that holds the opening words alone (where the mark must end at the end of a word). All four pass.
 
 The fix to the mark went live the same afternoon. I downloaded the zip from the live site and compared its panel script with the one in this repository: identical.
+
+## 11 November: the citation pointed at the wrong step
+
+Filming "Cite it right", I read the citation the panel offered for the time-indoors trail. It pointed at an undated agency PDF, not at the 2001 survey the verdict rests on. The citation took the last confirmed step in the list, and since the PDF fix that list ends on an undated page that had been "not found" before.
+
+The citation now points at the earliest dated step that was confirmed, the same step the verdict and the tally name. With no dated step it falls back to the last confirmed one.
