@@ -90,8 +90,8 @@ One Cloudflare Worker (Hono, hono/jsx, D1, Workflows) on my first Cloudflare acc
 ### 4.3 Changes
 
 Worked out by code from two confirmed sentences, and labelled as such:
-- `rounded`: the numbers differ by rounding (87 percent became 90 percent).
-- `number_changed`: the numbers differ by more than rounding.
+- `rounded`: the newer figure is the older one written to fewer digits (87 percent became 90 percent).
+- `number_changed`: the figures differ in any other way, the same precision included (1.16 million became 1.19 million).
 - `careful_word_dropped`: a word such as about, nearly, up to, at least, a minimum of, may, estimated is in the older sentence and missing from the newer one.
 - `year_dropped`: the older sentence carries a year and the newer one does not, or gains "now" or "today".
 
@@ -151,7 +151,7 @@ Its own world, "The Line": the trail is a river drawn like a line map, one stop 
 - The TinyFish keys live only in the Worker's secrets. The extension holds no key.
 - Starting a trace is public, so it is limited: text of 12 to 600 characters, a public http or https address, 6 new traces per visitor per hour and 40 a day overall. Upstream reads at most 500 pages a day, because my other projects read with the same free allowance, and starts no new trace when fewer than 40 reads are left.
 - Only trails I choose are listed on the first page. A visitor's own trace is reachable by its link alone.
-- Deep searches: free runs are used first, on my main account and then on my second. After that a run is paid for from a fixed reserve (`PAID_DEEP_BUDGET_USD`, $6 in all). When both are used, a trace still runs the link follower and says plainly that the deep search is back the next day. If TinyFish will not say how many runs were made today, no run is started: not knowing is never a reason to spend. The run id is saved before anything else, so a retried step cannot start a second run.
+- Deep searches: free runs are used first, on my main account and then on my second. After that a run is paid for from a fixed reserve (`PAID_DEEP_BUDGET_USD`, $6 in all). When both are used, a trace still runs the link follower and says plainly that the deep search is back the next day; the first page warns of it before a trace is started, and a trail made that way is traced afresh when its sentence is traced again on a later day. If TinyFish will not say how many runs were made today, no run is started: not knowing is never a reason to spend. The run id is saved before anything else, so a retried step cannot start a second run.
 - Admin routes need a token.
 - Nothing about a visitor is stored beyond the claim and the page address they chose to trace.
 

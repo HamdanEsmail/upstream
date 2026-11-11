@@ -560,6 +560,20 @@ a:hover {
   color: var(--text);
 }
 
+/* room between the blocks of running text, and between a heading or a list of steps and the text under it */
+.prose > * + * {
+  margin-top: 12px;
+}
+
+h2 + .prose,
+.steps3 + .prose {
+  margin-top: 12px;
+}
+
+.prose > h3 {
+  margin-top: 20px;
+}
+
 .prose li {
   margin-top: 6px;
   padding-left: 18px;

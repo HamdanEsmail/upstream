@@ -39,7 +39,7 @@ Each of these has a test that failed first.
 
 The extension is small on purpose: one right-click entry, a side panel, and a marker on the page. The side panel does not draw the trail itself. It shows the markup the service draws, so the panel and the trail page cannot drift apart, and a fix to the page reaches the panel without a new install.
 
-I checked it in a real browser by loading it and driving its panel: it loads, reads a highlight, shows a trail from the service, links to the full trail, refuses a highlight that is too short, and underlines the traced sentence with the verdict beside it. The current Chrome ignores the switch that loads an extension from the command line, so that check ran in Edge, which is the same engine. The right-click entry cannot be driven that way, so I tried it by hand in Chrome: unzipped the download, loaded the folder, highlighted the magazine sentence from the first trail, and chose "Trace upstream". It worked.
+I checked it in a real browser by loading it and driving its panel: it loads, reads a highlight, shows a trail from the service, links to the full trail, refuses a highlight that is too short, and underlines the traced sentence with the verdict beside it. The current Chrome ignores the switch that loads an extension from the command line, so that check ran in Edge, which is the same engine. The right-click entry cannot be driven that way, so I tried it by hand in Chrome. It worked.
 
 ## 11 November: spending by accident
 
