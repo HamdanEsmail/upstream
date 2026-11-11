@@ -427,6 +427,25 @@ describe("what a free deep search really cost", () => {
     expect((await getEvents(env.DB, "t1", 50)).filter((e) => e.message === CHARGED)).toHaveLength(1);
   });
 
+  it("counts a charge against the reserve even when the reserve had no room for it", async () => {
+    world({ wallet: { "test-tinyfish-key": [27, 25] } });
+    await newTrace();
+    await runTrace({ ...env, PAID_DEEP_BUDGET_USD: "0" }, "t1", fakeStep(), clock);
+    expect(await getTrace(env.DB, "t1")).toMatchObject({ spendUsd: 2 });
+    expect(await countOf(env.DB, "all", "research:paid")).toBe(1);
+
+    // A reserve of $6 set afterwards pays for two more runs, not three: $6 in all.
+    const six = { ...env, PAID_DEEP_BUDGET_USD: "6" };
+    for (const id of ["t2", "t3", "t4"]) {
+      await newTrace(id);
+      await runTrace(six, id, fakeStep(), clock);
+    }
+    expect(await getTrace(env.DB, "t2")).toMatchObject({ researchRunId: "run-1", spendUsd: 2 });
+    expect(await getTrace(env.DB, "t3")).toMatchObject({ researchRunId: "run-1", spendUsd: 2 });
+    expect(await getTrace(env.DB, "t4")).toMatchObject({ researchRunId: null, spendUsd: 0 });
+    expect(await totals(env.DB)).toMatchObject({ spendUsd: 6 });
+  });
+
   it("leaves a run paid from the reserve as it was booked when it started", async () => {
     world({ runsToday: { "test-tinyfish-key": 2, "test-tinyfish-key-2": 2 }, wallet: { "test-tinyfish-key": [27, 25] } });
     await newTrace();

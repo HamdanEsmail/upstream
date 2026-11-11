@@ -12,7 +12,7 @@ import { TinyFishError, type Account } from "../tinyfish/client";
 import { readResearch, runsToday, startResearch } from "../tinyfish/research";
 import { readBalance } from "../tinyfish/wallet";
 import { buildQuery } from "./query";
-import { addEvent, bookRun, countOf, getSteps, getTrace, giveBack, recordSpend, takeSlot, updateTrace } from "./store";
+import { addEvent, bookRun, countOf, countUp, getSteps, getTrace, giveBack, recordSpend, takeSlot, updateTrace } from "./store";
 
 /** `walletBefore` is the account's wallet just before a free run; a paid run has none. */
 type Slot = { account: Account; day: string; name: string; costUsd: number; walletBefore: number | null };
@@ -205,8 +205,9 @@ export async function bookDeep(env: Env, traceId: string, now: string): Promise<
   const cost = free ? 0 : RESEARCH_RUN_USD;
   if (!(await bookRun(env.DB, traceId, trace.researchRunId, after, cost, now)) || cost === 0) return;
 
-  // The reserve may have no room left. The charge has happened either way, and is on the books.
-  await takeSlot(env.DB, "all", PAID, reserveRuns(env));
+  // The charge has happened, so it is counted against the reserve whether or not the reserve
+  // had room for it. A reserve raised later then pays for one run fewer.
+  await countUp(env.DB, "all", PAID);
   if (charged) await takeSlot(env.DB, "all", CHARGED, 1);
   await addEvent(
     env.DB,

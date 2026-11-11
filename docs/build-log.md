@@ -116,7 +116,7 @@ Checking what TinyFish says about free research runs, I found that its API refer
 
 Now Upstream reads the account's wallet before a free run and again a minute after the trail is done, so no visitor waits for it.
 
-- A fall of $2 or more means the run was charged. It is booked at $2 and never more, because my other projects spend from the same wallets. It takes a place in the reserve, and from then on no run is called free: a deep search is started only when the reserve can pay for it.
+- A fall of $2 or more means the run was charged. It is booked at $2 and never more, because my other projects spend from the same wallets. It takes a place in the reserve, and from then on no run is called free: a deep search is started only when the reserve can pay for it. The charge is counted even when the reserve is 0, so a reserve I set later pays for one run fewer and the total stays what I agreed to.
 - A wallet that cannot be read before the run means no free run is started.
 - A wallet that cannot be read afterwards, or that went up because I topped it up, can no longer say what the run cost. That run is booked at $2.
 

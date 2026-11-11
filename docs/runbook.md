@@ -67,7 +67,7 @@ A visitor's own trace is never listed on the first page. It is reachable by its 
 
 A free run is checked against the wallet. The account's balance is read just before the run (`wallet_before` on the trace) and again a minute after the trail is done (`wallet_after`):
 
-- A fall of $2 or more: the run was charged. It is booked at $2, never more, because my other projects spend from the same wallets. It takes a place in the reserve, and the mark `research:charged` is set. While that mark is set no run is called free: rule 3 is the only one left.
+- A fall of $2 or more: the run was charged. It is booked at $2, never more, because my other projects spend from the same wallets. It takes a place in the reserve, even when the reserve has no room, so a reserve raised later pays for one run fewer. The mark `research:charged` is set. While that mark is set no run is called free: rule 3 is the only one left.
 - A smaller fall, or none: the run was free.
 - A wallet that could not be read, or that went up because I topped it up: booked at $2 to be safe. The mark is not set.
 

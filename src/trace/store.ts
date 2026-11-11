@@ -288,6 +288,11 @@ export async function takeMany(db: D1Database, day: string, name: string, n: num
   return row !== null;
 }
 
+/** Counts one more for `name` on `day` whatever the limit is: for what has already happened. */
+export async function countUp(db: D1Database, day: string, name: string): Promise<void> {
+  await db.prepare("INSERT INTO limits (day, name, count) VALUES (?, ?, 1) ON CONFLICT (day, name) DO UPDATE SET count = count + 1").bind(day, name).run();
+}
+
 export async function giveBack(db: D1Database, day: string, name: string): Promise<void> {
   await db.prepare("UPDATE limits SET count = MAX(count - 1, 0) WHERE day = ? AND name = ?").bind(day, name).run();
 }

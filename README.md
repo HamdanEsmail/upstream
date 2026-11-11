@@ -108,7 +108,7 @@ npm run dev
 ```
 
 ```bash
-npm run check       # type check, 229 tests, and a dry-run deploy
+npm run check       # type check, 230 tests, and a dry-run deploy
 npm run extension   # copy the stylesheet into the extension and write the zip
 ```
 
