@@ -123,3 +123,5 @@ Now Upstream reads the account's wallet before a free run and again a minute aft
 The first page and the trail no longer promise that the deep search is "back at midnight" when it has been switched off this way.
 
 One limit remains. A charge that reaches the wallet more than a minute after the trail is done is not seen. TinyFish's reference says a run is charged when it completes.
+
+It went live the same evening: three new columns on the live database first, then the deploy. The four trails and the numbers in the footer read the same before and after. I ran one trace on the live site to see the changed steps work against the live database. The day's free runs were used, so it followed links only, finished in 7 seconds and cost nothing, and I removed it afterwards. The wallet reading itself runs for the first time with the next free run; I checked that both accounts' wallets answer in the shape the code reads.
