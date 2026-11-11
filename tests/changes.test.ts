@@ -49,3 +49,18 @@ describe("namedChanges", () => {
     expect(namedChanges("Nearly 90 percent of time is spent indoors.", "People spend nearly 90 percent of their time indoors.")).toEqual([]);
   });
 });
+
+describe("namedChanges and careful words of the same kind", () => {
+  it("does not call it a drop when one approximate word replaces another", () => {
+    expect(kinds("People now spend about 90 percent of their time indoors.", "People spend nearly 90 percent of their time indoors.")).toEqual([]);
+    expect(kinds("It takes roughly 21 days.", "It takes around 21 days.")).toEqual([]);
+  });
+
+  it("still names a drop when no word of that kind is left", () => {
+    expect(namedChanges("Americans spend more than 90 percent of their time inside.", "People spend nearly 90 percent of their time inside.")).toContainEqual({
+      kind: "careful_word_dropped",
+      detail: 'dropped "more than"',
+    });
+    expect(namedChanges("It may take up to 21 days.", "It takes about 21 days.")).toContainEqual({ kind: "careful_word_dropped", detail: 'dropped "may", "up to"' });
+  });
+});

@@ -63,14 +63,14 @@ describe("orderSteps", () => {
     expect(ordered.map((s) => s.url)).toEqual(["https://start.example/", "https://a.example/", "https://b.example/", "https://c.example/"]);
   });
 
-  it("leaves an undated step where it stood, after the step before it", () => {
+  it("puts an undated step with the dated step that follows it", () => {
     const ordered = orderSteps([
       step({ url: "https://start.example/", date: "2026-06-29" }),
       step({ url: "https://old.example/", date: "1989" }),
       step({ url: "https://undated.example/", date: null }),
       step({ url: "https://mid.example/", date: "2001" }),
     ]);
-    expect(ordered.map((s) => s.url)).toEqual(["https://start.example/", "https://mid.example/", "https://old.example/", "https://undated.example/"]);
+    expect(ordered.map((s) => s.url)).toEqual(["https://start.example/", "https://undated.example/", "https://mid.example/", "https://old.example/"]);
   });
 });
 
@@ -86,5 +86,26 @@ describe("reachedBy", () => {
   it("is search otherwise", () => {
     expect(reachedBy([], "https://b.example/y", null)).toBe("search");
     expect(reachedBy(["https://c.example/z"], null, null)).toBe("search");
+  });
+});
+
+describe("orderSteps with undated steps", () => {
+  it("puts an undated step just before the next dated step that followed it, not at the end", () => {
+    const ordered = orderSteps([
+      step({ url: "https://start.example/", date: "2025-12-15" }),
+      step({ url: "https://release.example/", date: null }),
+      step({ url: "https://agency.example/", date: "2017-11-02" }),
+      step({ url: "https://report.example/", date: "1989" }),
+      step({ url: "https://academy.example/", date: null }),
+      step({ url: "https://study.example/", date: "2001-07-26" }),
+    ]);
+    expect(ordered.map((s) => s.url)).toEqual([
+      "https://start.example/",
+      "https://release.example/",
+      "https://agency.example/",
+      "https://academy.example/",
+      "https://study.example/",
+      "https://report.example/",
+    ]);
   });
 });

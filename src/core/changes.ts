@@ -9,11 +9,16 @@ export type Change = { kind: ChangeKind; detail: string };
 /** Two numbers this close are the same figure rounded. */
 const ROUNDING = 0.05;
 
-// Words that make a statement careful. Losing one makes it sound firmer than its source.
-const CAREFUL = [
-  "about", "approximately", "around", "roughly", "nearly", "almost", "up to", "at least", "at most", "a minimum of", "a maximum of",
-  "as many as", "as much as", "more than", "less than", "an average of", "on average", "estimated", "usually", "typically", "generally",
-  "may", "might", "could",
+// Words that make a statement careful, by kind. Losing every word of a kind makes the
+// statement sound firmer than its source; swapping "about" for "nearly" does not.
+const CAREFUL_KINDS = [
+  ["about", "approximately", "around", "roughly", "nearly", "almost"],
+  ["at least", "a minimum of", "more than"],
+  ["up to", "at most", "a maximum of", "as many as", "as much as", "less than"],
+  ["an average of", "on average"],
+  ["estimated"],
+  ["usually", "typically", "generally"],
+  ["may", "might", "could"],
 ];
 
 function significantDigits(value: number): number {
@@ -56,8 +61,10 @@ function carefulAt(text: string, phrase: string): number {
 function carefulChanges(older: string, newer: string): Change[] {
   const was = normalise(older);
   const now = normalise(newer);
-  const dropped = CAREFUL.map((phrase) => ({ phrase, at: carefulAt(was, phrase) }))
-    .filter((p) => p.at !== -1 && carefulAt(now, p.phrase) === -1)
+  const dropped = CAREFUL_KINDS.filter((kind) => kind.every((phrase) => carefulAt(now, phrase) === -1))
+    .flat()
+    .map((phrase) => ({ phrase, at: carefulAt(was, phrase) }))
+    .filter((p) => p.at !== -1)
     .sort((a, b) => a.at - b.at);
   if (dropped.length === 0) return [];
   return [{ kind: "careful_word_dropped", detail: "dropped " + dropped.map((p) => `"${p.phrase}"`).join(", ") }];

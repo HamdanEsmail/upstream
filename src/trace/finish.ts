@@ -38,7 +38,8 @@ export async function finishTrace(env: Env, traceId: string, now: Date): Promise
   };
   const start = steps[0];
   const solid = steps.map((s, i) => ({ s, i })).filter(({ s, i }) => i > 0 && confirmed(s));
-  const earliest = solid[solid.length - 1];
+  // The earliest confirmed step that carries a date; an undated one cannot be called the oldest.
+  const earliest = [...solid].reverse().find(({ s }) => s.date !== null) ?? solid[solid.length - 1];
   const headline = start && start.wording !== null && earliest && earliest.s.wording !== null ? namedChanges(earliest.s.wording, start.wording) : [];
   if (earliest) add(headline, earliest.i, 0);
   const chain = start && start.wording !== null ? [{ s: start, i: 0 }, ...solid] : solid;
@@ -50,14 +51,15 @@ export async function finishTrace(env: Env, traceId: string, now: Date): Promise
   }
   for (const detail of trail?.changes ?? []) changes.push({ fromPosition: null, toPosition: null, kind: "noted", detail, basis: "research" });
 
+  // The report's word that an original exists counts only when that page was confirmed here.
   const last = steps[steps.length - 1];
-  const dated = [...steps].reverse().find((s) => s.date !== null);
+  const originUrl = trail?.origin.url ?? null;
+  const originStep = originUrl === null ? last : steps.find((s) => s.url !== null && sameAddress(s.url, originUrl));
   const { verdict, reached } = decide({
     readings: steps.map((s) => s.reading),
-    // The report's word that an original exists counts only when its last step was confirmed here.
-    research: trail === null ? null : { verdict: trail.verdict, originFound: trail.origin.found && last !== undefined && confirmed(last) },
+    research: trail === null ? null : { verdict: trail.verdict, originFound: trail.origin.found && originStep !== undefined && confirmed(originStep) },
     changes: headline,
-    originYear: dated?.date ? Number(dated.date.slice(0, 4)) : null,
+    originYear: earliest?.s.date ? Number(earliest.s.date.slice(0, 4)) : null,
     thisYear: now.getUTCFullYear(),
   });
 

@@ -323,3 +323,24 @@ describe("when something breaks", () => {
     expect(await getTrace(env.DB, "t1")).toMatchObject({ status: "failed", error: "boom" });
   });
 });
+
+describe("which sentence the verdict rests on", () => {
+  it("compares the highlight with the earliest dated step that was confirmed, not with an undated one", async () => {
+    const ACADEMY = "https://academy.example/chapter-2";
+    const steps = [
+      ...trail().steps,
+      { url: ACADEMY, publisher: "The Academy", date: "unknown", wording: "Most people spend more than 90 percent of their time inside a building.", names_source: "none", linked: false },
+    ];
+    world({
+      pages: { ...PAGES, [ACADEMY]: { text: "Most people spend more than 90 percent of their time inside a building.", links: [] } },
+      runStates: [{ status: "COMPLETED", evidence: [], deep_result: { result: report(trail({ steps })) } }],
+    });
+    await newTrace();
+    await runTrace(env, "t1", fakeStep(), clock);
+    const stored = await getSteps(env.DB, "t1");
+    expect(stored.map((s) => s.url)).toEqual([START, AGENCY, STUDY, ACADEMY]);
+    const changes = await getChanges(env.DB, "t1");
+    expect(changes).toContainEqual({ fromPosition: 2, toPosition: 0, kind: "rounded", detail: "87 percent became 90 percent", basis: "code" });
+    expect(changes.some((c) => c.detail.includes("more than"))).toBe(false);
+  });
+});

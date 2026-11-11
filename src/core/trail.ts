@@ -74,15 +74,17 @@ const sortable = (date: string): string => (date + "-00-00").slice(0, 10);
 
 /**
  * The highlighted page stays first; the rest run from newest to oldest. A step with no
- * date stays right after the step it followed.
+ * date is placed just before the next dated step that came after it in the order found,
+ * so it never ends the trail as if it were the oldest. With no dated step after it, it
+ * stays behind the dated step before it.
  */
 export function orderSteps<T extends Step>(steps: T[]): T[] {
   const [start, ...rest] = steps;
   if (!start) return [];
-  let carried = "9999-99-99";
   const keyed = rest.map((s, index) => {
-    if (s.date !== null) carried = sortable(s.date);
-    return { s, key: carried, index };
+    const after = rest.slice(index).find((x) => x.date !== null)?.date;
+    const before = rest.slice(0, index).reverse().find((x) => x.date !== null)?.date;
+    return { s, key: after ? sortable(after) : before ? sortable(before) : "9999-99-99", index };
   });
   keyed.sort((a, b) => (a.key === b.key ? a.index - b.index : a.key < b.key ? 1 : -1));
   return [start, ...keyed.map((k) => k.s)];
