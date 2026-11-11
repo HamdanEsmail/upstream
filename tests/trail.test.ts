@@ -109,3 +109,16 @@ describe("orderSteps with undated steps", () => {
     ]);
   });
 });
+
+describe("orderSteps with dates that name only a year or a month", () => {
+  it("does not let a bare year end the trail ahead of fuller dates in that year", () => {
+    const ordered = orderSteps([
+      step({ url: "https://start.example/", date: "2026-06-29" }),
+      step({ url: "https://a.example/2013", date: "2013-05-22" }),
+      step({ url: "https://a.example/may", date: "2011-05" }),
+      step({ url: "https://a.example/april", date: "2011-04-14" }),
+      step({ url: "https://a.example/year", date: "2011" }),
+    ]);
+    expect(ordered.map((s) => s.url)).toEqual(["https://start.example/", "https://a.example/2013", "https://a.example/year", "https://a.example/may", "https://a.example/april"]);
+  });
+});

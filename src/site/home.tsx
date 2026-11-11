@@ -4,7 +4,7 @@ import { siteName } from "../core/links";
 import type { Trace } from "../trace/store";
 import { quoted, verdictWords } from "./words";
 
-export function Home({ note, recent }: { note: string | null; recent: Trace[] }) {
+export function Home({ note, recent, deepOut }: { note: string | null; recent: Trace[]; deepOut: boolean }) {
   return (
     <main class="page">
       <h1>Where did that number come from?</h1>
@@ -15,6 +15,13 @@ export function Home({ note, recent }: { note: string | null; recent: Trace[] })
       {note ? (
         <p class="note" role="alert">
           {note}
+        </p>
+      ) : null}
+
+      {deepOut ? (
+        <p class="note" role="status">
+          Today's deep searches are used up. A trace started now follows links only and takes under a minute. The deep search is back at midnight UTC; trace the same
+          sentence again after that and it starts afresh with the full search.
         </p>
       ) : null}
 
@@ -32,7 +39,11 @@ export function Home({ note, recent }: { note: string | null; recent: Trace[] })
             Trace it upstream
           </button>
         </div>
-        <p class="hint">The first steps appear within seconds. The full trail usually takes 4 to 6 minutes, and you can watch it grow.</p>
+        <p class="hint">
+          {deepOut
+            ? "The first steps appear within seconds. Today the trace stops there, with links only."
+            : "The first steps appear within seconds. The full trail usually takes 4 to 6 minutes, and you can watch it grow."}
+        </p>
       </form>
 
       <h2 id="traced">Traced so far</h2>

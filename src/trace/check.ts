@@ -23,6 +23,11 @@ function bareSite(url: string): boolean {
   }
 }
 
+/** True for the address of a copy the Internet Archive saved. */
+function savedCopyAddress(url: string): boolean {
+  return /^https?:\/\/web\.archive\.org\/web\/\d{4,14}[a-z_]*\//i.test(url);
+}
+
 export function proposedOf(trace: Trace): ProposedTrail | null {
   if (trace.proposed === null) return null;
   try {
@@ -124,8 +129,11 @@ export async function checkProposed(env: Env, traceId: string, index: number, no
       if (found && found.reading !== "not_found") {
         step.wording = found.sentence;
         step.reading = found.reading;
-        step.readFrom = "live";
-        message = `Checked ${site}: found ${found.reading === "exact" ? "word for word" : "in slightly different words"}.`;
+        // When the address the deep search gave is itself an Internet Archive copy, say so.
+        const saved = savedCopyAddress(p.url);
+        step.readFrom = saved ? "archive" : "live";
+        step.archiveUrl = saved ? p.url : null;
+        message = `Checked ${site}: found ${found.reading === "exact" ? "word for word" : "in slightly different words"}${saved ? " in a saved copy" : ""}.`;
       }
     }
 
@@ -157,6 +165,9 @@ export async function checkProposed(env: Env, traceId: string, index: number, no
       step.wording = found.sentence;
       step.reading = "offline";
       step.quotedBy = siteName(quoting.url);
+      // Whatever was read at the address (a front page, at best) is not the source itself.
+      step.title = null;
+      step.links = [];
       message = `${site} is not readable online; ${step.quotedBy} quotes it.`;
       break;
     }

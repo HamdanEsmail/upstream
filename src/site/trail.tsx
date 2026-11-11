@@ -20,6 +20,7 @@ function Quote({ step }: { step: DocumentStep }) {
 }
 
 function openWords(step: DocumentStep): string {
+  if (step.reading === "offline") return "Open where it is quoted";
   if (step.readFrom === "archive") return "Open the saved copy";
   if (step.wording !== null && (step.reading === "exact" || step.reading === "close") && step.openUrl !== step.url) return "Open at the sentence";
   return "Open the page";
@@ -106,23 +107,33 @@ function Verdict({ doc }: { doc: TrailDocument }) {
 
 function Facts({ doc }: { doc: TrailDocument }) {
   const beyond = doc.steps.slice(1);
-  const oldest = [...beyond].reverse().find((s) => s.date !== null && confirmed(s)) ?? [...doc.steps].reverse().find((s) => s.date !== null);
+  // A source known only because a later page quotes it is not counted as read on its own page.
+  const onPage = beyond.filter((s) => confirmed(s) && s.reading !== "offline").length;
+  const quotedOnly = beyond.filter((s) => confirmed(s) && s.reading === "offline").length;
+  // The page the reader started from is never "the earliest step".
+  const oldest = [...beyond].reverse().find((s) => s.date !== null && confirmed(s)) ?? [...beyond].reverse().find((s) => s.date !== null);
+  const how = !oldest ? "" : oldest.reading === "offline" ? "the earliest step, known only as quoted" : confirmed(oldest) ? "the earliest step confirmed" : "the earliest step, not confirmed";
+  const source = oldest ? dateSourceWords(oldest.dateSource) : null;
   const notes = doc.steps.reduce((n, s) => n + s.notes.length, 0);
   return (
     <dl class="facts">
       <div>
-        <dt>
-          {beyond.filter(confirmed).length} of {beyond.length}
-        </dt>
-        <dd>steps back, confirmed on the page itself</dd>
-      </div>
-      <div>
-        <dt>{oldest ? oldest.datePlain : "No date"}</dt>
+        <dt>{beyond.length === 0 ? "No steps back" : `${onPage} of ${beyond.length}`}</dt>
         <dd>
-          {oldest && confirmed(oldest) ? "the earliest step confirmed" : "the earliest step"}
-          {oldest && dateSourceWords(oldest.dateSource) ? `, ${dateSourceWords(oldest.dateSource)}` : ""}
+          {beyond.length === 0
+            ? "nothing beyond the page you read was found"
+            : `steps back, found on the page itself${quotedOnly > 0 ? `; ${quotedOnly} more known only as quoted by another page` : ""}`}
         </dd>
       </div>
+      {oldest ? (
+        <div>
+          <dt>{oldest.datePlain}</dt>
+          <dd>
+            {how}
+            {source ? `, ${source}` : ""}
+          </dd>
+        </div>
+      ) : null}
       <div>
         <dt>
           {notes} {notes === 1 ? "change" : "changes"}
@@ -180,8 +191,8 @@ export function TrailBody({ doc, panel }: { doc: TrailDocument; panel: boolean }
           </section>
         ) : null}
         <p class="ev">
-          {done && doc.finishedAt ? `Traced ${plainDate(doc.finishedAt.slice(0, 10))}, ${doc.finishedAt.slice(11, 16)} UTC` : `Started ${plainDate(doc.createdAt.slice(0, 10))}, ${doc.createdAt.slice(11, 16)} UTC`} · TinyFish Fetch
-          and Research · spend on this trace ${doc.spendUsd.toFixed(2)}
+          {done && doc.finishedAt ? `Traced ${plainDate(doc.finishedAt.slice(0, 10))}, ${doc.finishedAt.slice(11, 16)} UTC` : `Started ${plainDate(doc.createdAt.slice(0, 10))}, ${doc.createdAt.slice(11, 16)} UTC`} ·{" "}
+          {doc.progress.deepStartedAt !== null ? "TinyFish Fetch and Research" : "TinyFish Fetch"} · spend on this trace ${doc.spendUsd.toFixed(2)}
         </p>
       </div>
       {done ? (

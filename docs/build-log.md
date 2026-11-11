@@ -60,3 +60,20 @@ Deployed to Cloudflare's free plan. The four trails were built on the live servi
 With the day's free deep searches used, I saw what a visitor gets: a trail from links only, marked "Not settled". That is honest. What was wrong came after it: the same sentence always opens the trail that exists, so that shallow trail would have been handed back the next day too, when the deep search was free again, and a visitor has no way to clear it.
 
 Now a trail that finished without a deep search is traced afresh when the sentence is traced again on a later day. On the same day it still opens the saved trail, and when the day's limits leave no room for a new trace it opens the old one. A trail I listed on the first page is never cleared. The trail's summary also says what to do: trace the sentence again after midnight UTC.
+
+## 11 November: a visitor from outside
+
+I gave a fresh Claude (Sonnet) the address of the live site, curl, the README, and a limit of two new traces, and asked for a hard report. In 27 calls it checked two steps of two trails against their own source pages (both held the quoted wording) and scored the first impression 8 of 10, the trails 7, honesty about limits 7 and the API 6. What it found and I fixed, tests first:
+
+- **Its two traces came back "Not settled" with no word on the page about why or what to do.** The day's deep searches were used. The trail's summary now says to trace the sentence again after midnight UTC, and the first page warns before a trace is started.
+- **The footer said "0 deep searches" under four trails that each used one.** Those runs had been made before the trails were built, so nothing had counted them. A deep search is now counted for every trail that had one.
+- **A trail with links only still said "TinyFish Fetch and Research".** It now names Research only when a deep search ran.
+- **A trail with no step beyond the first page showed that page's own date as "the earliest step confirmed".** It now says "No steps back".
+- **"4 of 4 steps back, confirmed on the page itself" included a 1981 newspaper that is not online.** A source known only because a later page quotes it is counted apart, shows no title, and opens the page that quotes it at the quoted sentence. Before, its link led to the newspaper's front page.
+- **On an encyclopaedia page a whole paragraph was shown as the sentence.** Footnote marks such as [36] sat between the full stop and the next sentence. They are left out now.
+- **The oldest step of one trail was cut off in the middle of a word.** The source is a PDF whose lines break inside words. Upstream now joins the lines around a sentence both ways, with a space and with nothing, and keeps the reading that fits better. On the real page the advertisement's sentence is now found word for word, and a second PDF that had been "not found" is found.
+- **A step dated only "2011" ended a trail after steps dated April and May 2011.** A bare year or month now sorts as the end of that period.
+- **PDF file names were shown as titles** ("Big Data Book3.indd"). A file name is no longer shown, and a long title is cut at a word.
+- **The API was described only in the README, and the extension page was thin.** Both are on the site now.
+
+Left as they are, on purpose: a scanned 1981 page whose text comes back with spaces inside words is shown as "found in slightly different words", which is what it is; and a page proposed by the deep search that does not hold the wording stays on the trail, marked as not found.

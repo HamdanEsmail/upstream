@@ -287,11 +287,12 @@ export async function recordSpend(db: D1Database, kind: string, amountUsd: numbe
   await db.prepare("INSERT INTO spend (at, kind, amount_usd, ref) VALUES (?, ?, ?, ?)").bind(now, kind, amountUsd, ref).run();
 }
 
+/** A deep search is counted for every trail that had one, whether the run was free, paid or made before the trail was built. */
 export async function totals(db: D1Database): Promise<{ traces: number; steps: number; deepSearches: number; spendUsd: number }> {
   const row = await db
     .prepare(
       `SELECT (SELECT COUNT(*) FROM traces) AS traces, (SELECT COUNT(*) FROM steps) AS steps,
-              (SELECT COUNT(*) FROM spend WHERE kind = 'research') AS deep, (SELECT COALESCE(SUM(amount_usd), 0) FROM spend) AS spent`,
+              (SELECT COUNT(*) FROM traces WHERE research_run_id IS NOT NULL) AS deep, (SELECT COALESCE(SUM(amount_usd), 0) FROM spend) AS spent`,
     )
     .first<{ traces: number; steps: number; deep: number; spent: number }>();
   return { traces: row?.traces ?? 0, steps: row?.steps ?? 0, deepSearches: row?.deep ?? 0, spendUsd: Math.round((row?.spent ?? 0) * 100) / 100 };

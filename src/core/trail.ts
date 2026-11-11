@@ -69,8 +69,11 @@ export function mergeSteps<T extends Step>(first: T[], second: T[]): T[] {
   return out;
 }
 
-/** "2011" and "2011-05" compare as the start of that year or month. */
-const sortable = (date: string): string => (date + "-00-00").slice(0, 10);
+/**
+ * "2011" and "2011-05" compare as the end of that year or month: all such a date proves is
+ * that the page existed by then, so it must not end a trail ahead of a fuller date.
+ */
+const sortable = (date: string): string => (date.length === 4 ? `${date}-12-31` : date.length === 7 ? `${date}-31` : date.slice(0, 10));
 
 /**
  * The highlighted page stays first; the rest run from newest to oldest. A step with no

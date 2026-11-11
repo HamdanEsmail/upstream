@@ -183,7 +183,52 @@ describe("buildDocument", () => {
       "https://web.archive.org/web/2015/https://gone.example/story#:~:text=A%20sentence%20there",
       "https://agency.example/report.pdf",
       "https://b.example/y",
-      null,
+      // A source that is only in print opens where it is quoted.
+      "https://b.example/y#:~:text=As%20quoted",
     ]);
+  });
+});
+
+describe("buildDocument on awkward sources", () => {
+  it("drops a title that is only a file name", async () => {
+    await saveSteps(env.DB, "t1", [
+      step({ reachedBy: "start", wording: "A sentence here." }),
+      step({ url: "https://a.example/1.pdf", title: "Print scan0008 1.tif (1 page)" }),
+      step({ url: "https://a.example/2.pdf", title: "103700_03_BRA_11_24W" }),
+      step({ url: "https://a.example/3.pdf", title: "Big Data Book3.indd" }),
+      step({ url: "https://a.example/4.pdf", title: "Microsoft Word - report_final.doc" }),
+      step({ url: "https://a.example/5", title: "Big Data – for better or worse - SINTEF" }),
+    ]);
+    const doc = await buildDocument(env, "t1");
+    expect(doc?.steps.map((s) => s.title)).toEqual([null, null, null, null, null, "Big Data – for better or worse - SINTEF"]);
+  });
+
+  it("cuts a long title at a word, not inside one", async () => {
+    // The 120th character falls inside "extraordinarily".
+    const title = "word ".repeat(23) + "extraordinarily long ending here";
+    await saveSteps(env.DB, "t1", [step({ reachedBy: "start", wording: "A sentence here.", title })]);
+    expect((await buildDocument(env, "t1"))?.steps[0]?.title).toBe("word ".repeat(23).trimEnd() + "…");
+  });
+
+  it("opens a source that is only in print at the sentence where a later page quotes it, and shows no title for it", async () => {
+    await saveSteps(env.DB, "t1", [
+      step({ reachedBy: "start", wording: "A sentence here." }),
+      step({ url: "https://quotes.example/history", publisher: "Quote History", wording: "The paper wrote this in 1981." }),
+      step({
+        url: "https://paper.example/",
+        publisher: "The Daily Example",
+        title: "News, Sports, Business | The Daily Example",
+        wording: "As printed in 1981.",
+        reading: "offline",
+        readFrom: null,
+        quotedBy: "quotes.example",
+      }),
+    ]);
+    await updateTrace(env.DB, "t1", { status: "done", verdict: "said_by_someone_else", reached: "earliest_copy", finishedAt: NOW });
+    const doc = await buildDocument(env, "t1");
+    expect(doc?.steps[2]).toMatchObject({ title: null, openUrl: "https://quotes.example/history#:~:text=As%20printed%20in%201981" });
+    // The citation does not send a reader to the newspaper's front page either.
+    expect(doc?.cite?.plain).toContain("The Daily Example (no date). Not readable online.");
+    expect(doc?.cite?.plain).not.toContain("https://paper.example/");
   });
 });

@@ -65,3 +65,51 @@ describe("findClaim on long pages", () => {
     expect(findClaim(filler + "People spend most of their day inside a building.", "People spend most of their day inside a building").reading).toBe("not_found");
   });
 });
+
+describe("findClaim on pages whose lines break in the middle of a sentence", () => {
+  const AD = [
+    "International Business Machines Corporation 2011.T",
+    "o build a smarter planet, we need smarter computing—computing th",
+    "at is tuned to the task, managed through the cloud and, importantly, de",
+    "signed for big data.H",
+    "ow big? We’re now creating 2.5 quintillion bytes daily—so much th",
+    "at 90% of the data in the world today has been created in the las",
+    "t two years alone. T",
+    "his data is also big in another way—in its promise.",
+  ].join("\n");
+
+  it("puts a sentence back together when the lines break inside words", () => {
+    const found = findClaim(AD, "We're now creating 2.5 quintillion bytes of data daily, so much that 90% of the data in the world today has been created in the last two years alone.");
+    expect(found.reading).toBe("close");
+    expect(found.sentence).toBe("We’re now creating 2.5 quintillion bytes daily—so much that 90% of the data in the world today has been created in the last two years alone.");
+  });
+
+  it("puts a sentence back together when the lines break between words", () => {
+    const page = [
+      "The survey found that respondents spent an average of 87% of their",
+      "time in enclosed buildings and about 6% of their time in enclosed",
+      "vehicles. The rest was spent outdoors.",
+    ].join("\n");
+    const found = findClaim(page, "Respondents reported spending 87% of their time in enclosed buildings and 6% of their time in enclosed vehicles.");
+    expect(found).toMatchObject({
+      reading: "close",
+      sentence: "The survey found that respondents spent an average of 87% of their time in enclosed buildings and about 6% of their time in enclosed vehicles.",
+    });
+  });
+
+  it("puts a sentence back together when the page gives one word to a line, with a tab between them", () => {
+    const page = ["designed for big data.", "How", "\t", "big?", "\t", "We’re", "\t", "now", "\t", "creating", "\t", "2.5", "\t", "quintillion", "\t", "bytes", "\t", "daily—", "so much that 90% of the data in the world today has been ", "created in the last two years alone.", "This data is also big in another way."].join("\n");
+    const found = findClaim(page, "We're now creating 2.5 quintillion bytes of data daily, so much that 90% of the data in the world today has been created in the last two years alone.");
+    expect(found.sentence).toBe("We’re now creating 2.5 quintillion bytes daily— so much that 90% of the data in the world today has been created in the last two years alone.");
+  });
+
+  it("does not run separate list items together", () => {
+    const page = ["- People spend most of their time in buildings", "- About 90 percent of homes have a kitchen", "- Indoor air is rarely measured"].join("\n");
+    expect(findClaim(page, "People spend about 90 percent of their time in buildings where indoor air is rarely measured.").reading).toBe("not_found");
+  });
+
+  it("finds a claim that the reader copied with a footnote mark in it", () => {
+    const page = "Goldfish have a memory span of at least three months.[36][37] By using positive reinforcement, they can be trained.";
+    expect(findClaim(page, "Goldfish have a memory span of at least three months.[36][37]")).toMatchObject({ reading: "exact", sentence: "Goldfish have a memory span of at least three months." });
+  });
+});

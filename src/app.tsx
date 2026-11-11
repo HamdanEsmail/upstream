@@ -10,6 +10,7 @@ import { GetPage, HowPage, NotFoundPage } from "./site/pages";
 import { TrailBody } from "./site/trail";
 import { adoptTrace } from "./trace/adopt";
 import { createTrace, REFUSALS } from "./trace/create";
+import { deepSearchesUsedUp } from "./trace/deep";
 import { buildDocument } from "./trace/document";
 import { deleteTraceFully, featuredTraces, getTrace, setFeatured, totals } from "./trace/store";
 
@@ -138,7 +139,7 @@ export function createApp(deps: { start?: Starter } = {}) {
     return page(
       c,
       { title: "Upstream: where did that number come from?", description: "Highlight a claim on any page and follow it back to where it first appeared, with every step read again.", current: "home" },
-      <Home note={note} recent={await featuredTraces(c.env.DB, 12)} />,
+      <Home note={note} recent={await featuredTraces(c.env.DB, 12)} deepOut={await deepSearchesUsedUp(c.env, new Date().toISOString().slice(0, 10))} />,
     );
   });
 

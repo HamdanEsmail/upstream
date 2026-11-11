@@ -16,6 +16,15 @@ export function normalise(s: string): string {
     .toLowerCase();
 }
 
+// Footnote marks as encyclopaedias print them, attached to the word or full stop before them:
+// [36], [a], [note 2], [citation needed]. They are not part of what the page says.
+const FOOTNOTE = /(?<=\S)\\?\[(?:\d{1,3}|[a-z]|note \d{1,3}|citation needed)\\?\]/gi;
+
+/** The text without its footnote marks. */
+export function withoutFootnotes(s: string): string {
+  return s.replace(FOOTNOTE, "");
+}
+
 // A full stop after one of these does not end a sentence.
 const ABBREVIATIONS = new Set([
   "dr", "mr", "mrs", "ms", "prof", "st", "vs", "etc", "inc", "ltd", "jr", "sr", "fig", "no", "vol", "approx", "est", "e.g", "i.e", "ph.d",
@@ -47,7 +56,7 @@ function splitLine(line: string): string[] {
 export function sentences(text: string): string[] {
   const out: string[] = [];
   for (const rawLine of text.split(/\n+/)) {
-    const line = rawLine
+    const line = withoutFootnotes(rawLine)
       .replace(/^\s*(?:#{1,6}|[-*+>]|\d+\.)\s+/, "")
       .replace(/\*\*|__/g, "")
       .replace(/\s+/g, " ")

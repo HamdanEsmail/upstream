@@ -119,6 +119,34 @@ export function HowPage({ reserveUsd }: { reserveUsd: number }) {
           that paragraph. It does not read your other tabs or your history, and it holds no key.
         </p>
       </div>
+
+      <h2 id="api">The API</h2>
+      <div class="prose">
+        <p>Everything the pages do is open to a program. No key is needed, and the limits above apply.</p>
+        <ul>
+          <li>
+            <span class="code">POST /api/traces</span> starts a trace. Send JSON with <span class="code">page_url</span>, <span class="code">text</span> (the sentence) and,
+            if you have them, <span class="code">near</span> (the links in that paragraph). It answers 202 with <span class="code">id</span>,{" "}
+            <span class="code">url</span> and <span class="code">api</span>, or 200 with <span class="code">reused: true</span> when that sentence on that page already has a
+            trail.
+          </li>
+          <li>
+            <span class="code">GET /api/traces/:id</span> returns the trail as JSON: status, progress, steps, changes, verdict and a citation. Ask again every few seconds
+            while <span class="code">running</span> is true.
+          </li>
+          <li>
+            <span class="code">GET /api/traces/:id/fragment</span> returns the trail's markup alone. The extension's side panel shows this.
+          </li>
+          <li>
+            <span class="code">GET /api/stats</span> returns the counts in the footer of this page.
+          </li>
+        </ul>
+        <p>
+          A refusal is JSON with an <span class="code">error</span> code and a plain <span class="code">message</span>. The codes are{" "}
+          <span class="code">text_too_short</span>, <span class="code">text_too_long</span> and <span class="code">bad_address</span> (400),{" "}
+          <span class="code">too_many_traces</span> and <span class="code">daily_limit</span> (429), and <span class="code">not_found</span> (404).
+        </p>
+      </div>
     </main>
   );
 }
@@ -144,6 +172,47 @@ export function GetPage() {
           Choose "Load unpacked" and pick the unzipped folder. Upstream now appears in the right-click menu when text is selected.
         </li>
       </ol>
+      <div class="prose">
+        <p>
+          It needs Chrome 116 or newer, because it uses Chrome's side panel. The same folder loads in Microsoft Edge from <span class="code">edge://extensions</span>.
+        </p>
+      </div>
+
+      <h2>Use it</h2>
+      <div class="prose">
+        <ul>
+          <li>
+            Select a sentence on any page and right-click it. "Trace upstream" is in the menu only while text is selected.
+          </li>
+          <li>
+            The side panel opens beside the page with the trail. The first steps arrive within seconds; the rest fills in while you read. "Open the full trail" at the top
+            of the panel opens the same trail as a page you can share.
+          </li>
+          <li>When the trail is done, the sentence on the page is underlined with the verdict beside it.</li>
+          <li>To keep it one click away, pin Upstream from the puzzle-piece menu in Chrome's toolbar. Its icon opens the panel.</li>
+        </ul>
+      </div>
+
+      <h2>If something goes wrong</h2>
+      <div class="prose">
+        <ul>
+          <li>
+            "Load unpacked" refuses the folder: pick the folder that holds <span class="code">manifest.json</span>. Some unzip tools put it one folder further in.
+          </li>
+          <li>"Trace upstream" is not in the menu: select some text first, then right-click the selection.</li>
+          <li>
+            To update, download the zip again, replace the files in the folder, and press Reload on Upstream's card at <span class="code">chrome://extensions</span>.
+          </li>
+        </ul>
+      </div>
+
+      <h2>What is in the download</h2>
+      <div class="prose">
+        <p>
+          Ten small files, about 16 KB zipped, none of them built or packed, so you can read every line: the manifest, a background script that adds the menu entry, the
+          panel's page with its script and two style sheets, one line that holds this site's address, and three icons.
+        </p>
+      </div>
 
       <h2>What it may do</h2>
       <div class="prose">

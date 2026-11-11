@@ -17,7 +17,7 @@ Each of these was traced from a sentence on a real page.
 | ["People spend nearly 90 percent of their time indoors"](https://upstream.hamdanesmail12-7a9.workers.dev/t/nz3fyx37aw) | Changed on the way | Seven steps. The measured figure, in a 2001 survey, is 87 percent. Upstream names the change: *rounded: 87% became 90 percent*. |
 | ["90% of the world's data has been created in the last two years"](https://upstream.hamdanesmail12-7a9.workers.dev/t/w2we62sv77) | No original source | Eight steps, back to an advertisement dated 14 April 2011. No study or dataset is behind it, and it has been repeated as current ever since. |
 | [A famous line about insanity, credited to a physicist](https://upstream.hamdanesmail12-7a9.workers.dev/t/8vzc7muyby) | Said by someone else | Five steps. The earliest appearance is a 1981 newspaper article, which survives only as quoted by a later page. |
-| ["It takes 21 days to build a habit"](https://upstream.hamdanesmail12-7a9.workers.dev/t/k96xt729ya) | No original source | The 21 days come from a 1960 book that said "a minimum of about 21 days". Upstream names what was lost: *careful words dropped: "usually", "a minimum of", "about"*. |
+| ["It takes 21 days to build a habit and 90 days to make it permanent"](https://upstream.hamdanesmail12-7a9.workers.dev/t/k96xt729ya) | No original source | No source at all was found for the 90 days. The 21 days come from a 1960 book that said "a minimum of about 21 days", and Upstream names what was lost: *careful words dropped: "usually", "a minimum of", "about"*. |
 
 ## Try it
 
@@ -65,7 +65,8 @@ Every verdict says whether it rests on an original source or only on the earlies
 - It does not decide whether a claim is true. It reports where the claim came from and what changed.
 - It does not read pages behind a login or a paywall.
 - It reads a page up to its first 120,000 characters.
-- Inside a PDF the browser cannot jump to a sentence, so the link opens the file. PDF text sometimes comes back with its lines broken, and then a sentence is shown as found "in slightly different words" or not found.
+- Inside a PDF the browser cannot jump to a sentence, so the link opens the file. PDF text often comes back with its lines broken in the middle of a sentence or a word. Upstream puts such a sentence back together where it can; where it cannot, the sentence is shown as found "in slightly different words" or not found.
+- A source that exists only in print has no page to open. Its step opens the page that quotes it, at the quoted sentence, and the tally counts it apart from the steps found on their own pages.
 - It trusts nothing the research run says about links or dates. Both are worked out again from the pages.
 
 ## Where TinyFish does the work
@@ -84,11 +85,11 @@ Every verdict says whether it rests on an original source or only on the earlies
 | `GET /api/traces/:id/fragment` | The trail's markup alone. The extension's side panel shows this. |
 | `GET /api/stats` | Trails, steps read, deep searches, spend. |
 
-Refusals are plain: `400 text_too_short`, `400 text_too_long`, `400 bad_address`, `429 too_many_traces`, `429 daily_limit`, each with a `message`.
+Refusals are plain: `400 text_too_short`, `400 text_too_long`, `400 bad_address`, `429 too_many_traces`, `429 daily_limit`, each with a `message`. The same list is on the site, at the foot of [How it works](https://upstream.hamdanesmail12-7a9.workers.dev/how#api).
 
 ## Limits and cost
 
-- Following links is free. The deep search is free four times a day (two TinyResearch runs on each of my two accounts). After that a run costs $2 and is paid from a fixed reserve; when the free runs and the reserve are used, a trace still follows links and says that the deep search is back at midnight UTC.
+- Following links is free. The deep search is free four times a day (two TinyResearch runs on each of my two accounts). After that a run costs $2 and is paid from a fixed reserve; when the free runs and the reserve are used, a trace still follows links and says that the deep search is back at midnight UTC. The first page says so too, before you start one.
 - If TinyFish will not say how many runs were made today, no run is started. Not knowing is never a reason to spend.
 - The same sentence on the same page is not traced twice. It opens the trail that exists. The one exception: a trail made on a day when no deep search was left is traced afresh when the sentence is traced again on a later day.
 - One visitor can start 6 new traces an hour; all visitors together 40 a day. Upstream reads at most 500 pages a day.
@@ -106,7 +107,7 @@ npm run dev
 ```
 
 ```bash
-npm run check       # type check, 189 tests, and a dry-run deploy
+npm run check       # type check, 210 tests, and a dry-run deploy
 npm run extension   # copy the stylesheet into the extension and write the zip
 ```
 

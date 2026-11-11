@@ -251,6 +251,17 @@ describe("which deep search a trace gets", () => {
     );
     expect((await getSteps(env.DB, "t1")).map((s) => s.url)).toEqual([START, AGENCY]);
     expect((await getEvents(env.DB, "t1", 50)).map((e) => e.message)).toContain("Today's deep searches are used up. This trail comes from following links only; the deep search is back at midnight UTC.");
+    // The first page reads this mark to warn the next visitor before they start.
+    expect(await countOf(env.DB, "2026-11-11", "research:out")).toBe(1);
+  });
+
+  it("takes the used-up mark away as soon as a trace gets a deep search again", async () => {
+    world({ runsToday: { "test-tinyfish-key": 2, "test-tinyfish-key-2": 2 } });
+    await env.DB.prepare("INSERT INTO limits (day, name, count) VALUES ('2026-11-11', 'research:out', 1)").run();
+    await newTrace();
+    await runTrace(env, "t1", fakeStep(), clock);
+    expect(await getTrace(env.DB, "t1")).toMatchObject({ researchAccount: "main", spendUsd: 2 });
+    expect(await countOf(env.DB, "2026-11-11", "research:out")).toBe(0);
   });
 
   it("gives the slot back when the run could not be started", async () => {
@@ -435,6 +446,30 @@ describe("crediting a source to the page that quotes it", () => {
     await runTrace(env, "t1", fakeStep(), clock);
     const last = (await getSteps(env.DB, "t1"))[2];
     expect(last).toMatchObject({ url: paper, reading: "offline", quotedBy: "news.example", date: "1981-10-11" });
+  });
+
+  it("keeps nothing of the front page that stood at the address", async () => {
+    const paper = "https://courier.example/";
+    withLast(
+      { url: paper, publisher: "Daily Courier", date: "1981-10-11", wording: "People spend nearly 90 percent of their time indoors, yet indoor air is studied less.", names_source: "none", linked: false },
+      { pages: { ...PAGES, [paper]: { title: "News, Sport, Business | Daily Courier", text: "Today's front page.", links: ["https://courier.example/sport"] } } },
+    );
+    await newTrace();
+    await runTrace(env, "t1", fakeStep(), clock);
+    expect((await getSteps(env.DB, "t1"))[2]).toMatchObject({ reading: "offline", quotedBy: "news.example", title: null, links: [] });
+  });
+
+  it("says so when the page the deep search named is itself a saved copy", async () => {
+    const copy = "https://web.archive.org/web/20120601120000/http://vendor.example/what-is-big-data.html";
+    withLast(
+      { url: copy, publisher: "The Vendor", date: "2011-05", wording: "People spend nearly 90 percent of their time indoors.", names_source: "none", linked: false },
+      { pages: { ...PAGES, [copy]: { title: "What is big data?", text: "People spend nearly 90 percent of their time indoors. That is a lot.", links: [] } } },
+    );
+    await newTrace();
+    await runTrace(env, "t1", fakeStep(), clock);
+    const last = (await getSteps(env.DB, "t1")).find((s) => s.url === copy);
+    expect(last).toMatchObject({ reading: "exact", readFrom: "archive", archiveUrl: copy, date: "2011-05", dateSource: "research" });
+    expect((await getEvents(env.DB, "t1", 50)).map((e) => e.message)).toContain("Checked web.archive.org: found word for word in a saved copy.");
   });
 
   it("does not do it on a loose match", async () => {

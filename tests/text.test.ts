@@ -71,3 +71,19 @@ describe("contentWords", () => {
     expect(contentWords("The average human attention span is now 8 seconds")).toEqual(["average", "human", "attention", "span", "now", "8", "seconds"]);
   });
 });
+
+describe("sentences on a page with footnote marks", () => {
+  it("ends a sentence at a footnote mark and leaves the mark out", () => {
+    const text = "Goldfish have a memory span of at least three months.[36][37] By using positive reinforcement, they can be trained.[a] Some say otherwise.[citation needed] The end.";
+    expect(sentences(text)).toEqual([
+      "Goldfish have a memory span of at least three months.",
+      "By using positive reinforcement, they can be trained.",
+      "Some say otherwise.",
+      "The end.",
+    ]);
+  });
+
+  it("keeps square brackets that are not footnote marks", () => {
+    expect(sentences("The court held [that] the rule applies [sic] in 2019.")).toEqual(["The court held [that] the rule applies [sic] in 2019."]);
+  });
+});

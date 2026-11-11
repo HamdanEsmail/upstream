@@ -1,5 +1,5 @@
 // Finds where a page states a claim, and says how sure the reading is.
-import { contentWords, normalise, numbers, sentences } from "./text";
+import { contentWords, normalise, numbers, sentences, withoutFootnotes } from "./text";
 
 /** `exact`: word for word. `close`: the same statement in slightly different words. */
 export type Reading = "exact" | "close" | "not_found";
@@ -88,19 +88,66 @@ function keys(claim: string): string[] {
   return [...out];
 }
 
+// A heading, a list item, a quotation or a table row: never the middle of a sentence.
+const BLOCK = /^\s*(?:#{1,6}\s|[-*+>]\s|\d+\.\s|\|)/;
+const ENDS = /[.?!:;]["'”’)\]]*\s*$/;
+/** How many lines either side of a sentence are looked at when putting it back together. Some PDFs give one word to a line. */
+const REACH = 12;
+
+/** True when line `b` carries on a sentence that line `a` leaves unfinished. */
+function carriesOn(a: string, b: string): boolean {
+  if (a.trim() === "" || b.trim() === "" || BLOCK.test(a) || BLOCK.test(b)) return false;
+  return /^\s*[a-z]/.test(b) || (!ENDS.test(a) && /^\s*\d/.test(b));
+}
+
+/**
+ * Some pages, PDFs above all, break their lines in the middle of a sentence or even of a
+ * word. This takes the lines around the best sentence found so far, joins them both ways
+ * (with a space, and with nothing), and returns a better reading when one comes out of it.
+ */
+function mended(text: string, claim: string, claimStems: Set<string>, wanted: string, best: { sentence: string; score: number }): Found | null {
+  // A line holding only a tab or spaces is a leftover of the page's layout, not a paragraph break.
+  const lines = text.split("\n").filter((l) => l === "" || l.trim() !== "");
+  const probe = best.sentence.slice(0, 24);
+  const at = lines.findIndex((l) => l.includes(probe));
+  if (at === -1) return null;
+  let from = at;
+  let to = at;
+  while (from > 0 && at - from < REACH && carriesOn(lines[from - 1] as string, lines[from] as string)) from--;
+  while (to < lines.length - 1 && to - at < REACH && carriesOn(lines[to] as string, lines[to + 1] as string)) to++;
+  if (from === to) return null;
+
+  let out: Found | null = null;
+  for (const glue of [" ", ""]) {
+    const joined = lines.slice(from, to + 1).join(glue);
+    const list = sentences(joined);
+    if (normalise(withoutFootnotes(joined)).includes(wanted)) {
+      const whole = list.find((s) => normalise(s).includes(wanted)) ?? spanned(list, wanted);
+      if (whole !== null) return { reading: "exact", sentence: whole, score: 1 };
+    }
+    for (const s of list) {
+      const sc = score(claim, claimStems, s);
+      if (sc > (out?.score ?? best.score)) out = { reading: "close", sentence: s, score: sc };
+    }
+  }
+  return out !== null && out.score >= CLOSE_AT ? out : null;
+}
+
 /**
  * Looks for `claim` in `pageText` and returns the page's own sentence that states it.
  * Cheap tests come first so that a long page costs little: the whole page is checked once
  * for the exact words, and only sentences sharing words with the claim are scored.
  */
-export function findClaim(pageText: string, claim: string): Found {
+export function findClaim(pageText: string, rawClaim: string): Found {
+  // A footnote mark copied along with the highlight is not part of the claim.
+  const claim = withoutFootnotes(rawClaim);
   const wanted = core(claim);
   const text = pageText.length > MOST_CHARS ? pageText.slice(0, MOST_CHARS) : pageText;
   const list = sentences(text);
   if (wanted.length < 8 || list.length === 0) return { reading: "not_found", sentence: null, score: 0 };
   const lowered = list.map((s) => s.toLowerCase());
 
-  if (normalise(text).includes(wanted)) {
+  if (normalise(withoutFootnotes(text)).includes(wanted)) {
     const anchor = (wanted.match(/[a-z]{5,}/g) ?? []).reduce((a, b) => (b.length > a.length ? b : a), "");
     for (const [i, s] of list.entries()) {
       if (anchor !== "" && !(lowered[i] as string).includes(anchor)) continue;
@@ -123,6 +170,8 @@ export function findClaim(pageText: string, claim: string): Found {
     const sc = score(claim, claimStems, s);
     if (best === null || sc > best.score) best = { sentence: s, score: sc };
   }
+  const better = best === null ? null : mended(text, claim, claimStems, wanted, best);
+  if (better !== null) return better;
   if (best !== null && best.score >= CLOSE_AT) return { reading: "close", sentence: best.sentence, score: best.score };
   return { reading: "not_found", sentence: null, score: best?.score ?? 0 };
 }

@@ -63,7 +63,13 @@ export type TrailDocument = {
 
 const confirmed = (s: StoredStep): boolean => s.wording !== null && (s.reading === "exact" || s.reading === "close" || s.reading === "offline");
 
-function openUrl(s: StoredStep): string | null {
+function openUrl(s: StoredStep, all: StoredStep[]): string | null {
+  if (s.reading === "offline") {
+    // The address on record is at best the publisher's front page. The place to read the
+    // sentence is the page that quotes it.
+    const quoting = s.quotedBy === null ? undefined : all.find((x) => x !== s && x.url !== null && siteName(x.url) === s.quotedBy);
+    return quoting && quoting.url !== null && s.wording !== null ? sentenceLink(quoting.url, s.wording) : null;
+  }
   if (s.url === null) return null;
   if (s.readFrom === "archive" && s.archiveUrl !== null) return sentenceLink(s.archiveUrl, s.wording ?? "");
   if (s.wording !== null && (s.reading === "exact" || s.reading === "close")) return sentenceLink(s.url, s.wording);
@@ -74,7 +80,20 @@ const NAME_MAX = 44;
 const TITLE_MAX = 120;
 const SOURCE_MAX = 180;
 
-const clip = (s: string, max: number): string => (s.length > max ? s.slice(0, max) + "…" : s);
+/** Cuts at the last space before the limit, so no word is left broken. Text with no space near the end is cut at the limit. */
+function clip(s: string, max: number): string {
+  if (s.length <= max) return s;
+  const cut = s.slice(0, max);
+  const space = cut.lastIndexOf(" ");
+  return (space > max * 0.6 ? cut.slice(0, space).replace(/[\s,;:–—-]+$/, "") : cut) + "…";
+}
+
+// What a PDF made by a layout or scanning program calls itself: a file name, not a title.
+const FILE_ENDING = /\.(?:tiff?|indd|pdf|docx?|pptx?|xlsx?|qxd)\b/i;
+
+function fileName(title: string): boolean {
+  return FILE_ENDING.test(title) || /^Microsoft Word - /i.test(title) || (!/\s/.test(title) && /\d/.test(title) && /_/.test(title));
+}
 
 /** A short publisher name when there is one, else the site; a print-only source keeps its name. */
 function nameOf(s: StoredStep): string {
@@ -94,10 +113,15 @@ function decoded(s: string): string {
   });
 }
 
-/** A page title worth showing: long enough to say something, clipped when very long. */
+/**
+ * A page title worth showing: long enough to say something, clipped when very long. A file
+ * name is not a title, and a source that is only in print has none here: any title on
+ * record belongs to whatever page stood at its address.
+ */
 function titleOf(s: StoredStep): string | null {
+  if (s.reading === "offline") return null;
   const title = s.title === null ? "" : decoded(s.title).trim();
-  return title.length >= 8 ? clip(title, TITLE_MAX) : null;
+  return title.length >= 8 && !fileName(title) ? clip(title, TITLE_MAX) : null;
 }
 
 /** What a change note points at in the newer sentence: the new figure, or the word a year became. */
@@ -145,7 +169,7 @@ export async function buildDocument(env: Env, id: string): Promise<TrailDocument
       ? citation({
           verdict: (trace.verdict ?? "not_settled") as Verdict,
           reached: (trace.reached ?? "nothing") as Reached,
-          origin: origin ? { publisher: nameOf(origin), title: titleOf(origin), date: origin.date, url: origin.url, wording: origin.wording } : null,
+          origin: origin ? { publisher: nameOf(origin), title: titleOf(origin), date: origin.date, url: origin.reading === "offline" ? null : origin.url, wording: origin.wording } : null,
           trailUrl: url,
         })
       : null;
@@ -168,7 +192,7 @@ export async function buildDocument(env: Env, id: string): Promise<TrailDocument
     steps: steps.map((s, i) => ({
       position: i,
       url: s.url,
-      openUrl: openUrl(s),
+      openUrl: openUrl(s, steps),
       publisher: s.publisher || siteName(s.url),
       name: nameOf(s),
       title: titleOf(s),

@@ -10,6 +10,14 @@ import { addEvent, countOf, getSteps, getTrace, giveBack, recordSpend, takeSlot,
 
 type Slot = { account: Account; day: string; name: string; costUsd: number };
 
+/** The day's counter that says a trace found no deep search left. Its limit is 1: it is a mark, not a count. */
+const OUT = "research:out";
+
+/** True when a trace today has already found the deep searches used up. */
+export async function deepSearchesUsedUp(env: Env, day: string): Promise<boolean> {
+  return (await countOf(env.DB, day, OUT)) > 0;
+}
+
 /**
  * Takes a free run on `account` if one is left today, counting runs made outside Upstream
  * too. `counted` is false when TinyFish would not say how many runs were made today.
@@ -56,6 +64,8 @@ export async function startDeep(env: Env, traceId: string, now: Date): Promise<{
       ? "Today's deep searches are used up. This trail comes from following links only; the deep search is back at midnight UTC."
       : "Today's deep-search allowance could not be checked, so none was started. This trail comes from following links only.";
     await addEvent(env.DB, traceId, why, stamp);
+    // The first page reads this mark and warns the next visitor before they start a trace.
+    if (counted) await takeSlot(env.DB, day, OUT, 1);
     return { started: false };
   }
 
@@ -74,6 +84,7 @@ export async function startDeep(env: Env, traceId: string, now: Date): Promise<{
   // the run and not start a second one. The bookkeeping after it may fail without harm.
   await updateTrace(env.DB, traceId, { status: "searching", researchRunId: runId, researchAccount: slot.account, researchStartedAt: stamp, spendUsd: slot.costUsd });
   try {
+    await giveBack(env.DB, day, OUT);
     await recordSpend(env.DB, "research", slot.costUsd, runId, stamp);
     await addEvent(
       env.DB,

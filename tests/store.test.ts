@@ -138,6 +138,9 @@ describe("limits and spend", () => {
     await saveSteps(env.DB, "t1", [step({}), step({ url: "https://b.example/y" })]);
     await recordSpend(env.DB, "research", 0, "run-1", NOW);
     await recordSpend(env.DB, "research", 2, "run-2", NOW);
-    expect(await totals(env.DB)).toEqual({ traces: 1, steps: 2, deepSearches: 2, spendUsd: 2 });
+    // Money is added up from what was spent; a deep search is counted per trail that had one.
+    expect(await totals(env.DB)).toEqual({ traces: 1, steps: 2, deepSearches: 0, spendUsd: 2 });
+    await updateTrace(env.DB, "t1", { researchRunId: "run-2" });
+    expect(await totals(env.DB)).toEqual({ traces: 1, steps: 2, deepSearches: 1, spendUsd: 2 });
   });
 });

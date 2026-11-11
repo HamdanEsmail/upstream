@@ -217,3 +217,70 @@ describe("the admin routes", () => {
     expect(await (await call("/api/stats")).json()).toMatchObject({ traces: 0, steps: 0 });
   });
 });
+
+describe("what a trail page claims", () => {
+  it("does not call the page's own date the earliest step when nothing was found beyond it", async () => {
+    await insertTrace(env.DB, { id: "t5", pageUrl: PAGE, text: TEXT, textKey: "k5", near: [], now: NOW });
+    await saveSteps(env.DB, "t5", [step({ date: "2002-01-15", dateSource: "page" })]);
+    await updateTrace(env.DB, "t5", { status: "done", verdict: "not_settled", reached: "nothing", summary: "The deep search did not run.", finishedAt: NOW });
+    const html = await (await call("/t/t5")).text();
+    expect(html).toContain("No steps back");
+    expect(html).not.toContain("the earliest step");
+    expect(html).not.toContain("0 of 0");
+  });
+
+  it("counts a source known only through a quotation apart from the steps found on their own pages", async () => {
+    await insertTrace(env.DB, { id: "t6", pageUrl: PAGE, text: TEXT, textKey: "k6", near: [], now: NOW });
+    await saveSteps(env.DB, "t6", [
+      step({}),
+      step({ url: "https://quotes.example/history", publisher: "Quote History", date: "2017-03-23", dateSource: "page", wording: "The paper wrote this in 1981.", reachedBy: "search" }),
+      step({ url: "https://paper.example/", publisher: "The Daily Example", date: "1981-10-11", dateSource: "research", wording: "As printed in 1981.", reading: "offline", readFrom: null, quotedBy: "quotes.example", reachedBy: "search" }),
+    ]);
+    await updateTrace(env.DB, "t6", { status: "done", verdict: "said_by_someone_else", reached: "earliest_copy", summary: "Someone else said it.", finishedAt: NOW });
+    const html = await (await call("/t/t6")).text();
+    expect(html).toContain("1 of 2");
+    expect(html).toContain("steps back, found on the page itself; 1 more known only as quoted by another page");
+    expect(html).toContain("the earliest step, known only as quoted");
+    expect(html).toContain("Open where it is quoted");
+    expect(html).not.toContain('href="https://paper.example/"');
+  });
+
+  it("names the research tool only on a trail that had a deep search", async () => {
+    await finished("t1");
+    expect(await (await call("/t/t1")).text()).not.toContain("Fetch and Research");
+    await finished("t7");
+    await updateTrace(env.DB, "t7", { researchRunId: "run-7", researchAccount: "main", researchStartedAt: NOW, pagesRead: 21 });
+    const html = await (await call("/t/t7")).text();
+    expect(html).toContain("TinyFish Fetch and Research");
+    expect(html).toContain("21 pages read by the deep search");
+  });
+});
+
+describe("what the site says about itself", () => {
+  it("counts a deep search for every trail that had one, however the run was started", async () => {
+    await finished("t1");
+    await finished("t8");
+    await updateTrace(env.DB, "t8", { researchRunId: "run-8", researchAccount: "second", researchStartedAt: NOW });
+    expect(await (await call("/api/stats")).json()).toEqual({ traces: 2, steps: 4, deepSearches: 1, spendUsd: 0 });
+  });
+
+  it("warns on the first page when the day's deep searches are used up", async () => {
+    expect(await (await call("/")).text()).not.toContain("deep searches are used up");
+    const today = new Date().toISOString().slice(0, 10);
+    await env.DB.prepare("INSERT INTO limits (day, name, count) VALUES (?, 'research:out', 1)").bind(today).run();
+    const html = await (await call("/")).text();
+    expect(html).toContain("deep searches are used up. A trace started now follows links only");
+    expect(html).toContain("back at midnight UTC");
+    expect(html).not.toContain("usually takes 4 to 6 minutes, and you can watch it grow");
+  });
+
+  it("describes the API on the page about how it works", async () => {
+    const html = await (await call("/how")).text();
+    for (const words of ["POST /api/traces", "GET /api/traces/:id", "GET /api/stats", "text_too_short", "reused"]) expect(html).toContain(words);
+  });
+
+  it("tells a stranger enough to install and use the extension", async () => {
+    const html = await (await call("/get")).text();
+    for (const words of ["Chrome 116", "Trace upstream", "Load unpacked", "Developer mode", "side panel", "manifest.json", "Reload"]) expect(html).toContain(words);
+  });
+});
