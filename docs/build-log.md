@@ -99,3 +99,5 @@ The fix to the mark went live the same afternoon. I downloaded the zip from the 
 Filming "Cite it right", I read the citation the panel offered for the time-indoors trail. It pointed at an undated agency PDF, not at the 2001 survey the verdict rests on. The citation took the last confirmed step in the list, and since the PDF fix that list ends on an undated page that had been "not found" before.
 
 The citation now points at the earliest dated step that was confirmed, the same step the verdict and the tally name. With no dated step it falls back to the last confirmed one.
+
+It went live the same evening. I read all four trails before and after: the time-indoors citation now names the 2001 survey and quotes its 87%, and the other three are word for word what they were.
