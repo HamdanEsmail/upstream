@@ -101,3 +101,11 @@ Filming "Cite it right", I read the citation the panel offered for the time-indo
 The citation now points at the earliest dated step that was confirmed, the same step the verdict and the tally name. With no dated step it falls back to the last confirmed one.
 
 It went live the same evening. I read all four trails before and after: the time-indoors citation now names the 2001 survey and quotes its 87%, and the other three are word for word what they were.
+
+## 11 November: a time that was not the search's
+
+The four trails on the first page were built from deep searches that had already finished, so I did not pay or wait for the same run twice. Their facts row showed how long that rebuilding took: "39 s" above "26 pages read by the deep search". Read together, the two say the deep search took 39 seconds. It takes 4 to 6 minutes. I saw it while checking a frame of the film.
+
+A trail built that way now states no time. The row shows "26 pages" and "read by the deep search", and the API gives `seconds` as null. A trail traced fresh keeps its real time.
+
+It is live. I read the row on all four trails, on the page and in the extension's panel, and retook the picture at the top of the README, which showed the old row.
