@@ -7,7 +7,7 @@
     {
       "binding": "DB",
       "database_name": "upstream",
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "54390f17-084d-4e9d-9b35-351576189a84",
       "migrations_dir": "migrations"
     }
   ],
