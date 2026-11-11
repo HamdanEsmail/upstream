@@ -1,0 +1,753 @@
+/* Upstream: "The Line". A trail is a river drawn like a line map: one stop per source,
+   a solid line where a page links on, a dashed line where the next step was found by
+   search, a black square where the trail goes cold. One water blue, one rust for change. */
+
+:root {
+  --paper: #fbfaf7;
+  --white: #ffffff;
+  --ink: #15191c;
+  --text: #2a2f33;
+  --muted: #56616b;
+  --hair: #dcdfd8;
+  --river: #1d6d88;
+  --river-soft: #e4eff3;
+  --changed: #9c4a1c;
+  --changed-soft: #f7e6d9;
+  --sans: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --serif: "Newsreader", Georgia, "Times New Roman", serif;
+  --edge: 1.5px solid var(--ink);
+  --gutter: 16px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+}
+
+p,
+h1,
+h2,
+h3,
+ol,
+ul,
+dl,
+dd,
+blockquote,
+pre {
+  margin: 0;
+}
+
+ol,
+ul {
+  padding: 0;
+  list-style: none;
+}
+
+a {
+  color: var(--river);
+  text-underline-offset: 2px;
+}
+
+a:hover {
+  color: var(--ink);
+}
+
+:focus-visible {
+  outline: 3px solid var(--river);
+  outline-offset: 2px;
+}
+
+.skip {
+  position: absolute;
+  left: -999px;
+}
+
+.skip:focus {
+  left: var(--gutter);
+  top: 8px;
+  background: var(--white);
+  padding: 8px 12px;
+  z-index: 2;
+}
+
+/* ---- top bar and footer ---- */
+
+.top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 20px;
+  padding: 14px var(--gutter);
+  border-bottom: var(--edge);
+  background: var(--white);
+}
+
+.mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.mark svg {
+  width: 20px;
+  height: 20px;
+}
+
+.top nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 20px;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.top nav a {
+  color: var(--ink);
+  text-decoration: none;
+  padding: 4px 0;
+}
+
+.top nav a:hover,
+.top nav a[aria-current="page"] {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+}
+
+.foot {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 6px 24px;
+  padding: 14px var(--gutter);
+  border-top: var(--edge);
+  background: var(--white);
+  font-size: 13.5px;
+  color: var(--muted);
+}
+
+.foot a {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* ---- shared pieces ---- */
+
+.label {
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.label a {
+  color: inherit;
+}
+
+.btn {
+  display: inline-block;
+  font: inherit;
+  font-weight: 600;
+  font-size: 15px;
+  line-height: 1.2;
+  padding: 11px 16px;
+  border: var(--edge);
+  background: var(--white);
+  color: var(--ink);
+  text-decoration: none;
+  text-align: center;
+  cursor: pointer;
+}
+
+.btn.solid {
+  background: var(--ink);
+  color: var(--white);
+}
+
+.btn:hover {
+  background: var(--river-soft);
+  color: var(--ink);
+}
+
+.btn.solid:hover {
+  background: var(--river);
+  color: var(--white);
+}
+
+.btn[disabled] {
+  cursor: progress;
+  background: var(--river);
+  color: var(--white);
+}
+
+/* ---- the trail ---- */
+
+.trail {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.side,
+.main {
+  padding: 24px var(--gutter);
+  min-width: 0;
+}
+
+.side {
+  border-bottom: var(--edge);
+}
+
+.claim .quote {
+  font-family: var(--serif);
+  font-size: 22px;
+  line-height: 1.3;
+  margin-top: 8px;
+  overflow-wrap: anywhere;
+}
+
+.verdict,
+.working {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: var(--edge);
+}
+
+.word {
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.08;
+  margin: 6px 0 10px;
+}
+
+.why {
+  font-size: 16px;
+  color: var(--text);
+  max-width: 62ch;
+}
+
+.rests {
+  margin-top: 8px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.working .word {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 14px;
+}
+
+.clock {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--river);
+}
+
+.usual {
+  margin-top: 8px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.pulse {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--river);
+  animation: pulse 1.2s ease-out infinite;
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 0.25;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.log {
+  margin-top: 14px;
+  font-size: 14px;
+  color: var(--text);
+  border-left: 3px solid var(--hair);
+  padding-left: 12px;
+}
+
+.log li + li {
+  margin-top: 4px;
+}
+
+.log li:last-child {
+  font-weight: 600;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px 20px;
+  margin-top: 22px;
+  padding-top: 20px;
+  border-top: var(--edge);
+}
+
+.facts dt {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+}
+
+.facts dd {
+  font-size: 13.5px;
+  color: var(--muted);
+}
+
+.cite {
+  margin-top: 22px;
+  border: var(--edge);
+  background: var(--white);
+  padding: 16px;
+}
+
+.cite pre {
+  font-family: var(--serif);
+  font-size: 16px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 8px 0 14px;
+}
+
+.line {
+  position: relative;
+  margin-top: 16px;
+  padding-left: 34px;
+}
+
+.stop {
+  position: relative;
+  padding-bottom: 22px;
+}
+
+/* the river below a stop: solid when the next page is linked, dashed when it was found by search */
+.stop::before {
+  content: "";
+  position: absolute;
+  left: -26px;
+  top: 8px;
+  bottom: -8px;
+  width: 4px;
+  background: var(--river);
+}
+
+.stop.search::before {
+  background: repeating-linear-gradient(to bottom, var(--river) 0 6px, transparent 6px 12px);
+}
+
+.stop::after {
+  content: "";
+  position: absolute;
+  left: -33px;
+  top: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--white);
+  border: 4px solid var(--river);
+}
+
+.stop.last::before {
+  display: none;
+}
+
+.stop.cold::before {
+  display: none;
+}
+
+.stop.cold::after {
+  border-radius: 0;
+  background: var(--ink);
+  border-color: var(--ink);
+}
+
+.stop.unread::after {
+  border-color: var(--muted);
+}
+
+.meta {
+  font-size: 15px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.meta span {
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.stop .quote {
+  font-family: var(--serif);
+  font-size: 19px;
+  line-height: 1.36;
+  margin: 5px 0 7px;
+  max-width: 52ch;
+  overflow-wrap: anywhere;
+}
+
+.quote mark {
+  background: var(--changed-soft);
+  color: var(--changed);
+  padding: 0 2px;
+}
+
+.gap {
+  font-size: 15px;
+  color: var(--text);
+  margin: 5px 0 7px;
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.tags a {
+  font-weight: 600;
+}
+
+.drift {
+  display: inline-block;
+  margin-top: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--changed);
+  border: 1.5px solid var(--changed);
+  background: var(--white);
+  padding: 4px 8px;
+}
+
+.drift + .drift {
+  margin-left: 0;
+}
+
+.noted {
+  margin-top: 8px;
+  padding-top: 18px;
+  border-top: 1px solid var(--hair);
+}
+
+.noted ul {
+  margin-top: 8px;
+  font-size: 15px;
+  color: var(--text);
+  padding-left: 18px;
+  list-style: disc;
+}
+
+.noted li + li {
+  margin-top: 4px;
+}
+
+.ev {
+  margin-top: 18px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.failed .word {
+  color: var(--changed);
+}
+
+/* ---- home and the plain pages ---- */
+
+.page {
+  padding: 32px var(--gutter) 40px;
+  max-width: 1080px;
+  margin: 0 auto;
+}
+
+.page h1 {
+  font-size: clamp(34px, 7vw, 60px);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.02;
+  max-width: 14ch;
+}
+
+.lede {
+  font-family: var(--serif);
+  font-size: clamp(19px, 2.4vw, 23px);
+  line-height: 1.4;
+  margin-top: 16px;
+  max-width: 46ch;
+  color: var(--text);
+}
+
+.page h2 {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+  margin-top: 44px;
+  padding-top: 20px;
+  border-top: var(--edge);
+}
+
+.page h3 {
+  font-size: 17px;
+  font-weight: 700;
+  margin-top: 22px;
+}
+
+.page p + p,
+.page h3 + p {
+  margin-top: 8px;
+}
+
+.prose {
+  max-width: 66ch;
+  color: var(--text);
+}
+
+.prose li {
+  margin-top: 6px;
+  padding-left: 18px;
+  position: relative;
+}
+
+.prose li::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 0.62em;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--river);
+}
+
+.note {
+  margin-top: 20px;
+  border: 1.5px solid var(--changed);
+  background: var(--white);
+  color: var(--changed);
+  font-weight: 600;
+  padding: 10px 14px;
+  max-width: 62ch;
+}
+
+.ask {
+  margin-top: 26px;
+  border: var(--edge);
+  background: var(--white);
+  padding: 18px;
+  max-width: 720px;
+  display: grid;
+  gap: 14px;
+}
+
+.ask label {
+  display: grid;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.ask input,
+.ask textarea {
+  font: inherit;
+  font-size: 16px;
+  font-weight: 400;
+  border: var(--edge);
+  background: var(--paper);
+  color: var(--ink);
+  padding: 10px 12px;
+  width: 100%;
+}
+
+.ask textarea {
+  font-family: var(--serif);
+  font-size: 18px;
+  line-height: 1.35;
+  min-height: 96px;
+  resize: vertical;
+}
+
+.hint {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.traced {
+  margin-top: 14px;
+  border-top: 1px solid var(--hair);
+}
+
+.traced li {
+  border-bottom: 1px solid var(--hair);
+}
+
+.traced a {
+  display: grid;
+  gap: 2px;
+  padding: 14px 0;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.traced a:hover .claimline {
+  text-decoration: underline;
+}
+
+.traced .v {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--river);
+}
+
+.traced .claimline {
+  font-family: var(--serif);
+  font-size: 19px;
+  line-height: 1.3;
+}
+
+.traced .where {
+  font-size: 13.5px;
+  color: var(--muted);
+}
+
+.steps3 {
+  margin-top: 16px;
+  display: grid;
+  gap: 18px;
+  counter-reset: n;
+}
+
+.steps3 li {
+  counter-increment: n;
+  padding-left: 44px;
+  position: relative;
+  max-width: 60ch;
+}
+
+.steps3 li::before {
+  content: counter(n);
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 4px solid var(--river);
+  background: var(--white);
+  font-weight: 700;
+  font-size: 14px;
+  display: grid;
+  place-items: center;
+}
+
+.steps3 b {
+  display: block;
+}
+
+.code {
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 14px;
+  background: var(--white);
+  border: 1px solid var(--hair);
+  padding: 1px 5px;
+}
+
+/* ---- wider screens: the claim and verdict beside the line ---- */
+
+@media (min-width: 920px) {
+  :root {
+    --gutter: 40px;
+  }
+
+  .trail:not(.panel) {
+    grid-template-columns: minmax(360px, 460px) minmax(0, 1fr);
+  }
+
+  .trail:not(.panel) .side {
+    border-bottom: 0;
+    border-right: var(--edge);
+    padding: 40px;
+  }
+
+  .trail:not(.panel) .main {
+    padding: 40px 48px 40px 56px;
+  }
+
+  .trail:not(.panel) .claim .quote {
+    font-size: 28px;
+    line-height: 1.24;
+  }
+
+  .trail:not(.panel) .word {
+    font-size: 48px;
+  }
+
+  .trail:not(.panel) .stop .quote {
+    font-size: 21px;
+  }
+}
+
+/* ---- the side panel: always one column, a little tighter ---- */
+
+.trail.panel .side,
+.trail.panel .main {
+  padding: 18px 16px;
+}
+
+.trail.panel .claim .quote {
+  font-size: 19px;
+}
+
+.trail.panel .word {
+  font-size: 28px;
+}
+
+.trail.panel .stop .quote {
+  font-size: 17px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse {
+    animation: none;
+  }
+}

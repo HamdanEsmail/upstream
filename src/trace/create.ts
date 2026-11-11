@@ -3,7 +3,7 @@ import { NEAR_MAX, TEXT_MAX, TEXT_MIN, TRACES_PER_DAY, TRACES_PER_VISITOR_PER_HO
 import { normalise } from "../core/text";
 import { addressKey } from "../core/trail";
 import type { Env } from "../env";
-import { deleteTrace, findTraceByKey, giveBack, insertTrace, takeSlot } from "./store";
+import { deleteTrace, deleteTraceFully, findTraceByKey, giveBack, insertTrace, takeSlot } from "./store";
 
 export type CreateInput = { pageUrl: unknown; text: unknown; near?: unknown };
 
@@ -11,7 +11,7 @@ export type CreateResult =
   | { ok: true; id: string; reused: boolean }
   | { ok: false; status: 400 | 429 | 503; code: string; message: string };
 
-const REFUSALS = {
+export const REFUSALS = {
   text_too_short: `Highlight at least ${TEXT_MIN} characters. A whole sentence works best.`,
   text_too_long: `Highlight at most ${TEXT_MAX} characters: one or two sentences.`,
   bad_address: "That is not the address of a public web page.",
@@ -69,7 +69,15 @@ function newId(): string {
  * `visitor` is whatever tells one visitor from another (the connecting address); only a
  * hash of it is kept, as the name of an hourly counter. `start` begins the work for a new id.
  */
-export async function createTrace(env: Env, input: CreateInput, visitor: string, now: Date, start: (id: string) => Promise<void>): Promise<CreateResult> {
+export async function createTrace(
+  env: Env,
+  input: CreateInput,
+  visitor: string,
+  now: Date,
+  start: (id: string) => Promise<void>,
+  options: { limits?: boolean } = {},
+): Promise<CreateResult> {
+  const limited = options.limits !== false;
   const text = typeof input.text === "string" ? input.text.replace(/\s+/g, " ").trim() : "";
   if (text.length < TEXT_MIN) return refuse(400, "text_too_short");
   if (text.length > TEXT_MAX) return refuse(400, "text_too_long");
@@ -79,15 +87,19 @@ export async function createTrace(env: Env, input: CreateInput, visitor: string,
 
   const textKey = await sha256(`${pageKey}\n${normalise(text).replace(/^["'\s]+|["'\s]+$/g, "")}`);
   const existing = await findTraceByKey(env.DB, textKey);
-  if (existing) return { ok: true, id: existing.id, reused: true };
+  // A trace that broke is cleared away, so the same claim can be traced again.
+  if (existing && existing.status === "failed") await deleteTraceFully(env.DB, existing.id);
+  else if (existing) return { ok: true, id: existing.id, reused: true };
 
   const stamp = now.toISOString();
   const day = stamp.slice(0, 10);
   const visitorSlot = `visitor:${(await sha256(visitor)).slice(0, 16)}:${stamp.slice(11, 13)}`;
-  if (!(await takeSlot(env.DB, day, visitorSlot, TRACES_PER_VISITOR_PER_HOUR))) return refuse(429, "too_many_traces");
-  if (!(await takeSlot(env.DB, day, "traces", TRACES_PER_DAY))) {
-    await giveBack(env.DB, day, visitorSlot);
-    return refuse(429, "daily_limit");
+  if (limited) {
+    if (!(await takeSlot(env.DB, day, visitorSlot, TRACES_PER_VISITOR_PER_HOUR))) return refuse(429, "too_many_traces");
+    if (!(await takeSlot(env.DB, day, "traces", TRACES_PER_DAY))) {
+      await giveBack(env.DB, day, visitorSlot);
+      return refuse(429, "daily_limit");
+    }
   }
 
   const id = newId();
@@ -96,8 +108,10 @@ export async function createTrace(env: Env, input: CreateInput, visitor: string,
     await start(id);
   } catch {
     await deleteTrace(env.DB, id);
-    await giveBack(env.DB, day, visitorSlot);
-    await giveBack(env.DB, day, "traces");
+    if (limited) {
+      await giveBack(env.DB, day, visitorSlot);
+      await giveBack(env.DB, day, "traces");
+    }
     return refuse(503, "could_not_start");
   }
   return { ok: true, id, reused: false };

@@ -21,6 +21,8 @@ CREATE TABLE traces (
   report TEXT,
   proposed TEXT,
   spend_usd REAL NOT NULL DEFAULT 0,
+  -- 1 when the trail is listed on the first page. Only I can set it.
+  featured INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL,
   finished_at TEXT,
   error TEXT

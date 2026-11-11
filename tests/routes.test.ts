@@ -1,0 +1,215 @@
+import { env } from "cloudflare:workers";
+import { beforeEach, describe, expect, it } from "vitest";
+import { createApp } from "../src/app";
+import { getTrace, insertTrace, saveSteps, updateTrace, type StoredStep } from "../src/trace/store";
+
+const PAGE = "https://news.example/science/indoor-air";
+const TEXT = "People spend nearly 90 percent of their time indoors.";
+const NOW = "2026-11-11T06:30:00.000Z";
+
+let started: string[] = [];
+const app = createApp({
+  start: async (_env, id) => {
+    started.push(id);
+  },
+});
+
+const call = (path: string, init?: RequestInit) => app.request(`https://upstream.test${path}`, init, env);
+const json = (body: unknown, headers: Record<string, string> = {}): RequestInit => ({ method: "POST", headers: { "content-type": "application/json", ...headers }, body: JSON.stringify(body) });
+const form = (fields: Record<string, string>): RequestInit => ({ method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams(fields).toString() });
+
+const step = (over: Partial<StoredStep>): StoredStep => ({
+  url: PAGE,
+  publisher: "news.example",
+  title: null,
+  date: null,
+  dateSource: null,
+  wording: TEXT,
+  reading: "exact",
+  readFrom: "live",
+  archiveUrl: null,
+  reachedBy: "start",
+  namesSource: null,
+  quotedBy: null,
+  links: [],
+  readAt: NOW,
+  ...over,
+});
+
+async function finished(id: string, text = TEXT) {
+  await insertTrace(env.DB, { id, pageUrl: PAGE, text, textKey: `key-${id}`, near: [], now: NOW });
+  await saveSteps(env.DB, id, [
+    step({}),
+    step({ url: "https://journal.example/study", publisher: "Journal of Examples", date: "2001-07-26", dateSource: "page", wording: "People spend an average of 87 percent of their time indoors.", reachedBy: "search" }),
+  ]);
+  await updateTrace(env.DB, id, { status: "done", verdict: "changed_on_the_way", reached: "original", summary: "It comes from a 2001 survey.", finishedAt: NOW });
+}
+
+beforeEach(async () => {
+  started = [];
+  for (const table of ["traces", "steps", "staged_steps", "changes", "events", "spend", "limits"]) await env.DB.prepare(`DELETE FROM ${table}`).run();
+});
+
+describe("the API", () => {
+  it("starts a trace and answers with where to watch it", async () => {
+    const res = await call("/api/traces", json({ page_url: PAGE, text: TEXT, near: ["https://agency.example/report"] }));
+    expect(res.status).toBe(202);
+    const body = (await res.json()) as { id: string; url: string; api: string; reused: boolean };
+    expect(body).toMatchObject({ url: `https://upstream.test/t/${body.id}`, api: `https://upstream.test/api/traces/${body.id}`, reused: false });
+    expect(started).toEqual([body.id]);
+
+    const again = await call("/api/traces", json({ page_url: PAGE, text: TEXT }));
+    expect(again.status).toBe(200);
+    expect(await again.json()).toMatchObject({ id: body.id, reused: true });
+    expect(started).toHaveLength(1);
+  });
+
+  it("refuses a bad request in plain words", async () => {
+    const short = await call("/api/traces", json({ page_url: PAGE, text: "Too short" }));
+    expect(short.status).toBe(400);
+    expect(await short.json()).toEqual({ error: "text_too_short", message: "Highlight at least 12 characters. A whole sentence works best." });
+    const notJson = await call("/api/traces", { method: "POST", headers: { "content-type": "application/json" }, body: "{ nope" });
+    expect(notJson.status).toBe(400);
+    expect(await notJson.json()).toMatchObject({ error: "bad_request" });
+  });
+
+  it("returns a trail as JSON, and 404 for one that does not exist", async () => {
+    await finished("t1");
+    const res = await call("/api/traces/t1");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("access-control-allow-origin")).toBe("*");
+    expect(await res.json()).toMatchObject({ id: "t1", status: "done", verdict: "changed_on_the_way", verdictWords: "Changed on the way", steps: [{ position: 0 }, { position: 1, datePlain: "26 July 2001" }] });
+    const missing = await call("/api/traces/nope");
+    expect(missing.status).toBe(404);
+    expect(await missing.json()).toEqual({ error: "not_found", message: "There is no trail with that id." });
+  });
+
+  it("serves the trail alone, for the side panel", async () => {
+    await finished("t1");
+    const res = await call("/api/traces/t1/fragment?panel=1");
+    const html = await res.text();
+    expect(res.headers.get("content-type")).toContain("text/html");
+    expect(html.startsWith("<main")).toBe(true);
+    expect(html).toContain('class="trail panel"');
+    expect(html).toContain("Changed on the way");
+    expect(html).not.toContain("<html");
+    expect((await call("/api/traces/nope/fragment")).status).toBe(404);
+  });
+
+  it("answers a preflight request", async () => {
+    const res = await call("/api/traces", { method: "OPTIONS" });
+    expect(res.status).toBe(204);
+    expect(res.headers.get("access-control-allow-methods")).toContain("POST");
+  });
+
+  it("reports the totals", async () => {
+    await finished("t1");
+    const res = await call("/api/stats");
+    expect(await res.json()).toEqual({ traces: 1, steps: 2, deepSearches: 0, spendUsd: 0 });
+  });
+});
+
+describe("the pages", () => {
+  it("shows a finished trail", async () => {
+    await finished("t1");
+    const res = await call("/t/t1");
+    const html = await res.text();
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-security-policy")).toContain("script-src 'self'");
+    expect(html).toContain("<!doctype html>");
+    expect(html).toContain("Changed on the way");
+    expect(html).toContain("It comes from a 2001 survey.");
+    expect(html).toContain("26 July 2001");
+    expect(html).toContain("Cite it right");
+    expect(html).toContain('data-running="false"');
+    expect(html).not.toContain("http-equiv");
+  });
+
+  it("shows a running trace as working, with a clock and a reload for browsers without scripts", async () => {
+    await insertTrace(env.DB, { id: "t2", pageUrl: PAGE, text: TEXT, textKey: "k2", near: [], now: NOW });
+    await saveSteps(env.DB, "t2", [step({})]);
+    await updateTrace(env.DB, "t2", { status: "searching", pagesRead: 12, latestHosts: ["agency.example"] });
+    const html = await (await call("/t/t2")).text();
+    expect(html).toContain('data-running="true"');
+    expect(html).toContain("Following the trail");
+    expect(html).toContain(`data-since="${NOW}"`);
+    expect(html).toContain("The deep search has read 12 pages so far, most recently agency.example.");
+    expect(html).toContain("usually takes 4 to 6 minutes");
+    expect(html).toContain('<noscript><meta http-equiv="refresh" content="5"></noscript>');
+  });
+
+  it("escapes text that came from a web page", async () => {
+    await finished("t1", 'A claim with <script>alert("x")</script> inside it.');
+    const html = await (await call("/t/t1")).text();
+    expect(html).not.toContain("<script>alert");
+    expect(html).toContain("&lt;script&gt;alert");
+  });
+
+  it("says so when there is no such trail", async () => {
+    const res = await call("/t/nope");
+    expect(res.status).toBe(404);
+    expect(await res.text()).toContain("No trail here");
+  });
+
+  it("carries the credit on every page", async () => {
+    await finished("t1");
+    for (const path of ["/", "/how", "/get", "/t/t1", "/t/nope", "/somewhere-else"]) {
+      const html = await (await call(path)).text();
+      expect(html, path).toContain('<meta name="author" content="Hamdan Esmail"/>');
+      expect(html, path).toMatch(/Built by\s*<a href="https:\/\/github\.com\/HamdanEsmail" rel="author">\s*Hamdan Esmail\s*<\/a>/);
+    }
+  });
+
+  it("starts a trace from the form and sends the visitor to its page", async () => {
+    const res = await call("/trace", form({ url: PAGE, text: TEXT }));
+    expect(res.status).toBe(303);
+    expect(res.headers.get("location")).toBe(`/t/${started[0]}`);
+  });
+
+  it("sends a refused form back with the reason, chosen from a fixed list", async () => {
+    const res = await call("/trace", form({ url: PAGE, text: "Too short" }));
+    expect(res.status).toBe(303);
+    expect(res.headers.get("location")).toBe("/?note=text_too_short");
+    expect(await (await call("/?note=text_too_short")).text()).toContain("Highlight at least 12 characters. A whole sentence works best.");
+    expect(await (await call("/?note=%3Cb%3Ehello")).text()).not.toContain("hello");
+  });
+
+  it("lists only the trails chosen for the first page", async () => {
+    await finished("t1");
+    await finished("t2", "Another claim that nobody chose to show here.");
+    await call("/api/admin/traces/t1/feature", { method: "POST", headers: { authorization: "Bearer test-admin" } });
+    const html = await (await call("/")).text();
+    expect(html).toContain('href="/t/t1"');
+    expect(html).not.toContain('href="/t/t2"');
+  });
+});
+
+describe("the admin routes", () => {
+  it("need the token", async () => {
+    expect((await call("/api/admin/adopt", json({ page_url: PAGE, text: TEXT, research_run_id: "run-9", account: "main" }))).status).toBe(403);
+    expect((await call("/api/admin/traces/t1/feature", { method: "POST", headers: { authorization: "Bearer wrong" } })).status).toBe(403);
+  });
+
+  it("build a trail from a research run that already finished, and put it on the first page", async () => {
+    const res = await call("/api/admin/adopt", json({ page_url: PAGE, text: TEXT, research_run_id: "run-9", account: "second" }, { authorization: "Bearer test-admin" }));
+    expect(res.status).toBe(202);
+    const { id } = (await res.json()) as { id: string };
+    expect(started).toEqual([id]);
+    expect(await getTrace(env.DB, id)).toMatchObject({ researchRunId: "run-9", researchAccount: "second", spendUsd: 0 });
+    expect(await (await call("/")).text()).toContain(`href="/t/${id}"`);
+  });
+
+  it("refuse to adopt a run for a claim that already has a trail", async () => {
+    await call("/api/traces", json({ page_url: PAGE, text: TEXT }));
+    const res = await call("/api/admin/adopt", json({ page_url: PAGE, text: TEXT, research_run_id: "run-9", account: "main" }, { authorization: "Bearer test-admin" }));
+    expect(res.status).toBe(409);
+  });
+
+  it("delete a trail and everything it holds", async () => {
+    await finished("t1");
+    const res = await call("/api/admin/traces/t1", { method: "DELETE", headers: { authorization: "Bearer test-admin" } });
+    expect(res.status).toBe(200);
+    expect((await call("/api/traces/t1")).status).toBe(404);
+    expect(await (await call("/api/stats")).json()).toMatchObject({ traces: 0, steps: 0 });
+  });
+});

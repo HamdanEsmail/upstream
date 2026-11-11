@@ -30,14 +30,14 @@ Design: `../specs/2026-11-11-upstream-design.md`. I work through this list in or
 - [x] `deep.ts`: start the research run (free runs first, daily cap), poll with sleeps, record progress.
 - [x] `check.ts`: re-read every proposed step, fall back to the saved copy, set the reading.
 - [x] `finish.ts`: merge, order, compare, name changes, decide, store.
-- [ ] `adopt.ts`: build a trail from a research run that already finished.
+- [x] `adopt.ts`: build a trail from a research run that already finished.
 
 ## 4. Routes and pages (`src/handlers/`, `src/site/`)
 
-- [ ] `POST /api/traces`, `GET /api/traces/:id`, `GET /api/stats`, `POST /api/admin/adopt`.
-- [ ] The trail page `/t/:id`, the panel page `/panel/:id`, the home page, "How it works".
-- [ ] The waiting display: steps as they arrive, a clock, the usual time, pages read so far.
-- [ ] Footer credit on every page, with a test.
+- [x] `POST /api/traces`, `GET /api/traces/:id`, `GET /api/stats`, `POST /api/admin/adopt`.
+- [x] The trail page `/t/:id`, the panel page `/panel/:id`, the home page, "How it works".
+- [x] The waiting display: steps as they arrive, a clock, the usual time, pages read so far.
+- [x] Footer credit on every page, with a test.
 
 ## 5. The extension (`extension/`)
 

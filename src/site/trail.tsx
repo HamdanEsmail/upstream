@@ -1,0 +1,200 @@
+// A trail, drawn as a line of stops. The same markup serves the trail page (two columns on
+// a wide screen) and the extension's side panel (one column).
+import { plainDate } from "../core/dates";
+import type { DocumentStep, TrailDocument } from "../trace/document";
+import { dateSourceWords, duration, reachedLine, reachedWords, readingWords, stageWords } from "./words";
+
+const confirmed = (s: DocumentStep): boolean => s.wording !== null && (s.reading === "exact" || s.reading === "close" || s.reading === "offline");
+
+function Quote({ step }: { step: DocumentStep }) {
+  if (step.wording === null) return <p class="gap">{readingWords(step.reading, step.readFrom, step.quotedBy)}</p>;
+  const runs = step.marks ?? [{ op: "same" as const, text: step.wording }];
+  return (
+    <p class="quote">
+      “
+      {runs.map((run, i) => (
+        <>
+          {i > 0 ? " " : ""}
+          {run.op === "added" ? <mark>{run.text}</mark> : run.text}
+        </>
+      ))}
+      ”
+    </p>
+  );
+}
+
+function openWords(step: DocumentStep): string {
+  if (step.readFrom === "archive") return "Open the saved copy";
+  if (step.wording !== null && (step.reading === "exact" || step.reading === "close") && step.openUrl !== step.url) return "Open at the sentence";
+  return "Open the page";
+}
+
+function Stop({ step, next, cold, last, reached }: { step: DocumentStep; next: DocumentStep | undefined; cold: boolean; last: boolean; reached: string | null }) {
+  // The line below a stop shows how the next, older stop was reached.
+  const below = next ? (next.reachedBy === "link" ? "" : " search") : cold ? "" : " last";
+  const unread = step.position > 0 && !confirmed(step) ? " unread" : "";
+  const source = dateSourceWords(step.dateSource);
+  return (
+    <li class={`stop${below}${unread}`}>
+      <p class="meta">
+        {step.position === 0 ? "The page you read" : step.datePlain}{" "}
+        <span>
+          · {step.publisher}
+          {step.position === 0 ? ` · ${step.datePlain}` : ""}
+          {step.title && step.position > 0 ? ` · ${step.title}` : ""}
+          {source ? ` · ${source}` : ""}
+        </span>
+      </p>
+      <Quote step={step} />
+      <p class="tags">
+        {step.openUrl ? (
+          <a href={step.openUrl} rel="noopener noreferrer" target="_blank">
+            {openWords(step)}
+          </a>
+        ) : null}
+        {step.wording !== null ? <span>{readingWords(step.reading, step.readFrom, step.quotedBy)}</span> : null}
+        {step.position > 0 ? <span>{reachedWords(step.reachedBy)}</span> : null}
+        {step.namesSource ? <span>Names as its source: {step.namesSource}</span> : null}
+        {last && step.position > 0 && confirmed(step) && !cold ? <span>{reached === "original" ? "This is the original source." : "This is the earliest copy found."}</span> : null}
+      </p>
+      {step.notes.map((note) => (
+        <p class="drift">Changed here: {note}</p>
+      ))}
+    </li>
+  );
+}
+
+function Working({ doc }: { doc: TrailDocument }) {
+  return (
+    <section class="working" aria-live="polite">
+      <p class="label">Tracing</p>
+      <p class="word">
+        <span class="pulse" aria-hidden="true"></span>
+        Following the trail
+        <span class="clock" data-since={doc.progress.startedAt}>
+          started {doc.progress.startedAt.slice(11, 16)} UTC
+        </span>
+      </p>
+      <p class="why">{stageWords(doc.status, doc.progress.pagesRead, doc.progress.latestHosts)}</p>
+      <p class="usual">The first steps appear within seconds. The deep search usually takes 4 to 6 minutes; this page updates by itself.</p>
+      {doc.events.length > 0 ? (
+        <ol class="log">
+          {doc.events.map((e) => (
+            <li>{e.message}</li>
+          ))}
+        </ol>
+      ) : null}
+    </section>
+  );
+}
+
+function Verdict({ doc }: { doc: TrailDocument }) {
+  if (doc.status === "failed") {
+    return (
+      <section class="verdict failed">
+        <p class="label">Stopped</p>
+        <p class="word">This trace broke</p>
+        <p class="why">Something failed while tracing. Tracing the same sentence again from the first page starts it afresh.</p>
+      </section>
+    );
+  }
+  return (
+    <section class="verdict">
+      <p class="label">Verdict</p>
+      <p class="word">{doc.verdictWords}</p>
+      {doc.summary ? <p class="why">{doc.summary}</p> : null}
+      <p class="rests">{reachedLine(doc.reached)}</p>
+    </section>
+  );
+}
+
+function Facts({ doc }: { doc: TrailDocument }) {
+  const beyond = doc.steps.slice(1);
+  const oldest = [...doc.steps].reverse().find((s) => s.date !== null);
+  const notes = doc.steps.reduce((n, s) => n + s.notes.length, 0);
+  return (
+    <dl class="facts">
+      <div>
+        <dt>
+          {beyond.filter(confirmed).length} of {beyond.length}
+        </dt>
+        <dd>steps back, confirmed on the page itself</dd>
+      </div>
+      <div>
+        <dt>{oldest ? oldest.datePlain : "No date"}</dt>
+        <dd>the earliest step{oldest && dateSourceWords(oldest.dateSource) ? `, ${dateSourceWords(oldest.dateSource)}` : ""}</dd>
+      </div>
+      <div>
+        <dt>
+          {notes} {notes === 1 ? "change" : "changes"}
+        </dt>
+        <dd>named by comparing the sentences</dd>
+      </div>
+      <div>
+        <dt>{doc.seconds === null ? "" : duration(doc.seconds)}</dt>
+        <dd>{doc.progress.pagesRead > 0 ? `${doc.progress.pagesRead} pages read by the deep search` : "following links only"}</dd>
+      </div>
+    </dl>
+  );
+}
+
+export function TrailBody({ doc, panel }: { doc: TrailDocument; panel: boolean }) {
+  const done = doc.status === "done";
+  const cold = done && (doc.verdict === "no_original_source" || doc.verdict === "not_settled");
+  return (
+    <main class={`trail${panel ? " panel" : ""}`} id="trail" data-id={doc.id} data-running={doc.running ? "true" : "false"}>
+      <div class="side">
+        <section class="claim">
+          <p class="label">
+            The claim, as highlighted on{" "}
+            <a href={doc.pageUrl} rel="noopener noreferrer" target="_blank">
+              {doc.pageSite}
+            </a>
+          </p>
+          <blockquote class="quote">“{doc.text}”</blockquote>
+        </section>
+        {doc.running ? <Working doc={doc} /> : <Verdict doc={doc} />}
+        {done ? <Facts doc={doc} /> : null}
+        {done && doc.cite ? (
+          <section class="cite">
+            <p class="label">Cite it right</p>
+            <pre id="cite-text">{doc.cite.plain}</pre>
+            <button class="btn solid" type="button" data-copy="cite-text">
+              Copy this citation
+            </button>
+          </section>
+        ) : null}
+      </div>
+      <div class="main">
+        <p class="label">The trail, from the page you read back to where it started</p>
+        <ol class="line">
+          {doc.steps.map((step, i) => (
+            <Stop step={step} next={doc.steps[i + 1]} cold={cold} last={i === doc.steps.length - 1} reached={doc.reached} />
+          ))}
+          {cold ? (
+            <li class="stop cold">
+              <p class="meta">The trail goes cold here</p>
+              <p class="tags">
+                <span>{doc.verdict === "no_original_source" ? "No page beyond this point gives a source for the claim." : "Nothing beyond this point could be confirmed."}</span>
+              </p>
+            </li>
+          ) : null}
+        </ol>
+        {doc.noted.length > 0 ? (
+          <section class="noted">
+            <p class="label">Also noted by the deep search, not checked by code</p>
+            <ul>
+              {doc.noted.map((n) => (
+                <li>{n}</li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+        <p class="ev">
+          {done && doc.finishedAt ? `Traced ${plainDate(doc.finishedAt.slice(0, 10))}, ${doc.finishedAt.slice(11, 16)} UTC` : `Started ${plainDate(doc.createdAt.slice(0, 10))}, ${doc.createdAt.slice(11, 16)} UTC`} · TinyFish Fetch
+          and Research · spend on this trace ${doc.spendUsd.toFixed(2)}
+        </p>
+      </div>
+    </main>
+  );
+}

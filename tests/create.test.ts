@@ -88,3 +88,20 @@ describe("buildQuery", () => {
     expect(q).toContain('https://agency.example/report: "Americans spend about 90 percent of their time indoors."');
   });
 });
+
+describe("createTrace after a failure", () => {
+  it("starts afresh when the earlier trace for the same claim failed", async () => {
+    const first = await createTrace(env, { pageUrl: PAGE, text: TEXT }, "v", NOW, start);
+    if (!first.ok) throw new Error("setup");
+    await env.DB.prepare("UPDATE traces SET status = 'failed' WHERE id = ?").bind(first.id).run();
+    const second = await createTrace(env, { pageUrl: PAGE, text: TEXT }, "v", NOW, start);
+    expect(second).toMatchObject({ ok: true, reused: false });
+    expect(second.ok && second.id !== first.id).toBe(true);
+    expect(await getTrace(env.DB, first.id)).toBeNull();
+  });
+
+  it("skips the visitor and daily limits when told to", async () => {
+    await env.DB.prepare("INSERT INTO limits (day, name, count) VALUES ('2026-11-11', 'traces', 60)").run();
+    expect((await createTrace(env, { pageUrl: PAGE, text: TEXT }, "admin", NOW, start, { limits: false })).ok).toBe(true);
+  });
+});

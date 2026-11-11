@@ -24,6 +24,8 @@ export type Trace = {
   /** The trail read out of the report, as JSON text. */
   proposed: string | null;
   spendUsd: number;
+  /** Listed on the first page. */
+  featured: boolean;
   createdAt: string;
   finishedAt: string | null;
   error: string | null;
@@ -70,6 +72,7 @@ function toTrace(r: Row): Trace {
     report: text(r.report),
     proposed: text(r.proposed),
     spendUsd: Number(r.spend_usd ?? 0),
+    featured: Number(r.featured ?? 0) === 1,
     createdAt: String(r.created_at),
     finishedAt: text(r.finished_at),
     error: text(r.error),
@@ -93,9 +96,25 @@ export async function findTraceByKey(db: D1Database, textKey: string): Promise<T
   return row ? toTrace(row) : null;
 }
 
-export async function recentTraces(db: D1Database, limit: number): Promise<Trace[]> {
-  const { results } = await db.prepare("SELECT * FROM traces WHERE status = 'done' ORDER BY created_at DESC LIMIT ?").bind(limit).all<Row>();
+/** The trails chosen for the first page, newest first. A visitor's own trace is never listed there. */
+export async function featuredTraces(db: D1Database, limit: number): Promise<Trace[]> {
+  const { results } = await db.prepare("SELECT * FROM traces WHERE featured = 1 AND status != 'failed' ORDER BY created_at DESC LIMIT ?").bind(limit).all<Row>();
   return results.map(toTrace);
+}
+
+export async function setFeatured(db: D1Database, id: string, featured: boolean): Promise<void> {
+  await db.prepare("UPDATE traces SET featured = ? WHERE id = ?").bind(featured ? 1 : 0, id).run();
+}
+
+/** Removes a trail and everything it holds. */
+export async function deleteTraceFully(db: D1Database, id: string): Promise<void> {
+  await db.batch([
+    db.prepare("DELETE FROM steps WHERE trace_id = ?").bind(id),
+    db.prepare("DELETE FROM staged_steps WHERE trace_id = ?").bind(id),
+    db.prepare("DELETE FROM changes WHERE trace_id = ?").bind(id),
+    db.prepare("DELETE FROM events WHERE trace_id = ?").bind(id),
+    db.prepare("DELETE FROM traces WHERE id = ?").bind(id),
+  ]);
 }
 
 const COLUMNS: Record<string, string> = {

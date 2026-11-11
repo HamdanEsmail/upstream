@@ -1,10 +1,5 @@
-import { Hono } from "hono";
-import type { Env } from "./env";
+import { createApp } from "./app";
 
 export { TraceWorkflow } from "./trace/workflow";
 
-const app = new Hono<{ Bindings: Env }>();
-
-app.get("/api/health", (c) => c.json({ ok: true }));
-
-export default app;
+export default createApp();
