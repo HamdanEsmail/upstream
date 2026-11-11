@@ -14,10 +14,10 @@ Each of these was traced from a sentence on a real page.
 
 | The claim, as a page states it | Verdict | What the trail shows |
 |---|---|---|
-| ["People spend nearly 90 percent of their time indoors"](https://upstream.hamdanesmail12-7a9.workers.dev/t/nz3fyx37aw) | Changed on the way | Seven steps. The measured figure, in a 2001 survey, is 87 percent. Upstream names the change: *rounded: 87% became 90 percent*. |
-| ["90% of the world's data has been created in the last two years"](https://upstream.hamdanesmail12-7a9.workers.dev/t/w2we62sv77) | No original source | Eight steps, back to an advertisement dated 14 April 2011. No study or dataset is behind it, and it has been repeated as current ever since. |
-| [A famous line about insanity, credited to a physicist](https://upstream.hamdanesmail12-7a9.workers.dev/t/8vzc7muyby) | Said by someone else | Five steps. The earliest appearance is a 1981 newspaper article, which survives only as quoted by a later page. |
-| ["It takes 21 days to build a habit and 90 days to make it permanent"](https://upstream.hamdanesmail12-7a9.workers.dev/t/k96xt729ya) | No original source | No source at all was found for the 90 days. The 21 days come from a 1960 book that said "a minimum of about 21 days", and Upstream names what was lost: *careful words dropped: "usually", "a minimum of", "about"*. |
+| ["People spend nearly 90 percent of their time indoors"](https://upstream.hamdanesmail12-7a9.workers.dev/t/qg55tfayga) | Changed on the way | Seven steps. The measured figure, in a 2001 survey, is 87 percent. Upstream names the change: *rounded: 87% became 90 percent*. |
+| ["90% of the world's data has been created in the last two years"](https://upstream.hamdanesmail12-7a9.workers.dev/t/8f4cr5c9tv) | No original source | Eight steps, back to an advertisement dated 14 April 2011. No study or dataset is behind it, and it has been repeated as current ever since. |
+| [A famous line about insanity, credited to a physicist](https://upstream.hamdanesmail12-7a9.workers.dev/t/mwjdgwwmvk) | Said by someone else | Five steps. The earliest appearance is a 1981 newspaper article, which survives only as quoted by a later page. |
+| ["It takes 21 days to build a habit and 90 days to make it permanent"](https://upstream.hamdanesmail12-7a9.workers.dev/t/amhejbhyyc) | No original source | No source at all was found for the 90 days. The 21 days come from a 1960 book that said "a minimum of about 21 days", and Upstream names what was lost: *careful words dropped: "usually", "a minimum of", "about"*. |
 
 ## Try it
 

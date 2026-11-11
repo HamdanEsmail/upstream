@@ -81,3 +81,7 @@ Left as they are, on purpose: a scanned 1981 page whose text comes back with spa
 ## 11 November: rounded, or changed?
 
 Reading a road-safety page for a later trail, I saw Upstream call "1.16 million became 1.19 million" a rounding. It is not: both figures are given to the same precision, so one is simply a different figure. A change is now called rounded only when the newer figure is the older one written to fewer digits (87 as 90, 1,234 as 1,200). Anything else is "the figure changed".
+
+## 11 November: the fixes go live
+
+Deployed. I then rebuilt the four trails one at a time from the same finished research runs, so the first page was never empty: each came back with the verdict it had before, in 26 to 70 seconds. The trail about the world's data now reads 7 of 7 steps found on their own pages and ends on the 2011 advertisement, word for word. The trail links in the README are new because a rebuilt trail gets a new address. Spend is still $0.00.
