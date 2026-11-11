@@ -20,6 +20,7 @@ Every time after:
 ```bash
 npm run extension    # only if public/assets/line.css or extension/ changed
 npm run check
+npx wrangler d1 migrations apply upstream --remote   # only if migrations/ has a new file; before the deploy
 npx wrangler deploy
 ```
 
@@ -64,6 +65,14 @@ A visitor's own trace is never listed on the first page. It is reachable by its 
 
 "Today" is the UTC day. Runs made outside Upstream on the same accounts count: Upstream asks TinyFish how many runs each account made today before it takes a free one.
 
+A free run is checked against the wallet. The account's balance is read just before the run (`wallet_before` on the trace) and again a minute after the trail is done (`wallet_after`):
+
+- A fall of $2 or more: the run was charged. It is booked at $2, never more, because my other projects spend from the same wallets. It takes a place in the reserve, and the mark `research:charged` is set. While that mark is set no run is called free: rule 3 is the only one left.
+- A smaller fall, or none: the run was free.
+- A wallet that could not be read, or that went up because I topped it up: booked at $2 to be safe. The mark is not set.
+
+If the wallet cannot be read before a run, no free run is started on that account.
+
 To see what has been spent: `GET /api/stats`, or the footer of any page.
 
 ## When something looks wrong
@@ -71,9 +80,18 @@ To see what has been spent: `GET /api/stats`, or the footer of any page.
 | What I see | What it means | What I do |
 |---|---|---|
 | A trail says "Not settled" and "the deep search did not run" | The free runs and the reserve were used, or the count could not be read. | Nothing; it is back at midnight UTC. Tracing the sentence again on a later day clears the shallow trail and starts afresh. To do it the same day, delete the trail first. |
+| The first page says "Deep searches are switched off for now", or a trail's log says a free run was charged | A run started as a free one was followed by a fall of $2 or more in that account's wallet. | Compare `wallet_before` and `wallet_after` on that trace with what else I spent from that wallet in those minutes. If TinyFish did charge the run, leave it: the reserve decides from here. If the fall was my own other spending, switch free runs back on with the command below. |
 | A step says "the page could not be processed" | Reading or matching that page failed three times. The trail carried on without it. | Open the page by hand. Very large PDFs are the usual cause. |
 | A trail page says "This trace broke" | A step outside reading failed after its retries. | Trace the same sentence again; a broken trace is cleared and started afresh. Then read the Worker's logs. |
 | `429 daily_limit` | 40 new traces today, or fewer than 40 page reads left of the day's 500. | Wait for midnight UTC. |
 | The side panel says "Could not reach Upstream" | The service did not answer. | Check `GET /api/health`. |
+
+To switch free runs back on, only after checking that the run was not charged:
+
+```bash
+npx wrangler d1 execute upstream --remote --command "DELETE FROM limits WHERE day = 'all' AND name = 'research:charged'"
+```
+
+The $2 that was booked stays on the books.
 
 Logs: `npx wrangler tail upstream`. A Workflow's steps: the Cloudflare dashboard, Workers, Workflows, `upstream-trace`.

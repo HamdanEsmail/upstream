@@ -29,6 +29,11 @@ export const FOLLOW_CHARS = 40_000;
 export const FREE_RESEARCH_RUNS_PER_DAY = 2;
 /** What a research run costs after the free ones. */
 export const RESEARCH_RUN_USD = 2;
+/**
+ * A free run is booked this long after its trail is done: TinyFish charges a run when it
+ * completes, and this leaves the charge time to reach the wallet. No visitor waits for it.
+ */
+export const BOOK_AFTER_MS = 60_000;
 
 /** The deep search is checked this often, at most this many times (30 minutes). */
 export const POLL_MS = 15_000;

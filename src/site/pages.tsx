@@ -108,6 +108,10 @@ export function HowPage({ reserveUsd }: { reserveUsd: number }) {
           opens the saved trail. The one exception is a trail made on a day when no deep search was left: trace that sentence again on a later day and it starts afresh.
         </p>
         <p>
+          A free run is not taken on trust. Upstream reads the wallet before the run and again after the trail is done. If the run was charged after all, the charge is
+          added to the spend shown at the foot of every page, and from then on a deep search is started only when the reserve can pay for it.
+        </p>
+        <p>
           One visitor can start {TRACES_PER_VISITOR_PER_HOUR} new traces an hour, and all visitors together {TRACES_PER_DAY} a day.
         </p>
       </div>

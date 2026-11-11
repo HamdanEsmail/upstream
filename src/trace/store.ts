@@ -24,6 +24,12 @@ export type Trace = {
   /** The trail read out of the report, as JSON text. */
   proposed: string | null;
   spendUsd: number;
+  /** The account's wallet just before a free deep search started; null for a run paid from the reserve. */
+  walletBefore: number | null;
+  /** The wallet when the run was booked; null when it could not be read. */
+  walletAfter: number | null;
+  /** When the run was booked from the wallet. A run is booked once. */
+  bookedAt: string | null;
   /** Listed on the first page. */
   featured: boolean;
   createdAt: string;
@@ -52,6 +58,7 @@ function list(v: unknown): string[] {
 }
 
 const text = (v: unknown): string | null => (typeof v === "string" ? v : null);
+const amount = (v: unknown): number | null => (typeof v === "number" ? v : null);
 
 function toTrace(r: Row): Trace {
   return {
@@ -72,6 +79,9 @@ function toTrace(r: Row): Trace {
     report: text(r.report),
     proposed: text(r.proposed),
     spendUsd: Number(r.spend_usd ?? 0),
+    walletBefore: amount(r.wallet_before),
+    walletAfter: amount(r.wallet_after),
+    bookedAt: text(r.booked_at),
     featured: Number(r.featured ?? 0) === 1,
     createdAt: String(r.created_at),
     finishedAt: text(r.finished_at),
@@ -130,12 +140,16 @@ const COLUMNS: Record<string, string> = {
   report: "report",
   proposed: "proposed",
   spendUsd: "spend_usd",
+  walletBefore: "wallet_before",
   finishedAt: "finished_at",
   error: "error",
 };
 
 export type TraceUpdate = Partial<
-  Pick<Trace, "status" | "verdict" | "reached" | "summary" | "researchRunId" | "researchAccount" | "researchStartedAt" | "pagesRead" | "latestHosts" | "report" | "proposed" | "spendUsd" | "finishedAt" | "error">
+  Pick<
+    Trace,
+    "status" | "verdict" | "reached" | "summary" | "researchRunId" | "researchAccount" | "researchStartedAt" | "pagesRead" | "latestHosts" | "report" | "proposed" | "spendUsd" | "walletBefore" | "finishedAt" | "error"
+  >
 >;
 
 /** Writes only the fields given. */
@@ -285,6 +299,25 @@ export async function countOf(db: D1Database, day: string, name: string): Promis
 
 export async function recordSpend(db: D1Database, kind: string, amountUsd: number, ref: string, now: string): Promise<void> {
   await db.prepare("INSERT INTO spend (at, kind, amount_usd, ref) VALUES (?, ?, ?, ?)").bind(now, kind, amountUsd, ref).run();
+}
+
+/**
+ * Books a deep search that was started as a free one, from the wallet read after it. True the
+ * first time; false when the run was booked already, and then nothing is written. A charge
+ * gets its own line in the spend ledger, beside the $0 line written when the run started.
+ */
+export async function bookRun(db: D1Database, traceId: string, runId: string, walletAfter: number | null, costUsd: number, now: string): Promise<boolean> {
+  const claim = db.prepare("UPDATE traces SET booked_at = ?1, wallet_after = ?2, spend_usd = ?3 WHERE id = ?4 AND booked_at IS NULL").bind(now, walletAfter, costUsd, traceId);
+  // A free run leaves the ledger alone: its $0 line is there already.
+  if (costUsd <= 0) return (await claim.run()).meta.changes === 1;
+  const [, claimed] = await db.batch([
+    // The ledger line first, while the trace still says it is not booked. Both statements are one transaction.
+    db
+      .prepare("INSERT INTO spend (at, kind, amount_usd, ref) SELECT ?1, 'research:charged', ?2, ?3 WHERE EXISTS (SELECT 1 FROM traces WHERE id = ?4 AND booked_at IS NULL)")
+      .bind(now, costUsd, runId, traceId),
+    claim,
+  ]);
+  return claimed?.meta.changes === 1;
 }
 
 /** A deep search is counted for every trail that had one, whether the run was free, paid or made before the trail was built. */

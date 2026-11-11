@@ -109,3 +109,17 @@ The four trails on the first page were built from deep searches that had already
 A trail built that way now states no time. The row shows "26 pages" and "read by the deep search", and the API gives `seconds` as null. A trail traced fresh keeps its real time.
 
 It is live. I read the row on all four trails, on the page and in the markup the extension's panel loads, and retook the picture at the top of the README, which showed the old row.
+
+## 11 November: a free run taken on trust
+
+Checking what TinyFish says about free research runs, I found that its API reference no longer mentions them, while its pricing page still does. My four runs this morning were not charged. That sent me back to my own code, and it had a hole: Upstream counted a run as free because fewer than two had been made that day, wrote $0 in its books, and never looked at the wallet. Had TinyFish charged for those runs, the site would have gone on showing $0.00 while paying $2 a trace.
+
+Now Upstream reads the account's wallet before a free run and again a minute after the trail is done, so no visitor waits for it.
+
+- A fall of $2 or more means the run was charged. It is booked at $2 and never more, because my other projects spend from the same wallets. It takes a place in the reserve, and from then on no run is called free: a deep search is started only when the reserve can pay for it.
+- A wallet that cannot be read before the run means no free run is started.
+- A wallet that cannot be read afterwards, or that went up because I topped it up, can no longer say what the run cost. That run is booked at $2.
+
+The first page and the trail no longer promise that the deep search is "back at midnight" when it has been switched off this way.
+
+One limit remains. A charge that reaches the wallet more than a minute after the trail is done is not seen. TinyFish's reference says a run is charged when it completes.

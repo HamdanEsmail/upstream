@@ -297,6 +297,15 @@ describe("what the site says about itself", () => {
     expect(html).not.toContain("usually takes 4 to 6 minutes, and you can watch it grow");
   });
 
+  it("promises nothing for midnight on the first page once a free run has been charged", async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    await env.DB.prepare("INSERT INTO limits (day, name, count) VALUES (?, 'research:out', 1)").bind(today).run();
+    await env.DB.prepare("INSERT INTO limits (day, name, count) VALUES ('all', 'research:charged', 1)").run();
+    const html = await (await call("/")).text();
+    expect(html).toContain("Deep searches are switched off for now. A trace started now follows links only");
+    expect(html).not.toContain("back at midnight UTC");
+  });
+
   it("describes the API on the page about how it works", async () => {
     const html = await (await call("/how")).text();
     for (const words of ["POST /api/traces", "GET /api/traces/:id", "GET /api/stats", "text_too_short", "reused"]) expect(html).toContain(words);

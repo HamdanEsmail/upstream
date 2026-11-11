@@ -7,6 +7,7 @@ import { mergeSteps, orderSteps, sameAddress, type ReachedBy } from "../core/tra
 import { decide } from "../core/verdict";
 import type { Env } from "../env";
 import { proposedOf } from "./check";
+import { freeRunsOff } from "./deep";
 import { addEvent, clearStaged, getStaged, getSteps, getTrace, saveChanges, saveSteps, updateTrace, type StoredChange, type StoredStep } from "./store";
 
 const SUMMARY_MAX = 420;
@@ -84,10 +85,10 @@ export async function finishTrace(env: Env, traceId: string, now: Date): Promise
 
   let summary = brief(trail?.summary ?? "");
   if (trail === null) {
-    summary =
-      trace.researchRunId === null
-        ? "The deep search did not run, so this trail shows only what following the page's links found. The day's deep searches return at midnight UTC: trace the sentence again after that for the full trail."
-        : "The deep search gave no trail, so this shows only what following the page's links found.";
+    const links = "this trail shows only what following the page's links found.";
+    if (trace.researchRunId !== null) summary = "The deep search gave no trail, so this shows only what following the page's links found.";
+    else if (await freeRunsOff(env)) summary = `The deep search did not run, so ${links} Deep searches are switched off for now.`;
+    else summary = `The deep search did not run, so ${links} The day's deep searches return at midnight UTC: trace the sentence again after that for the full trail.`;
   }
 
   const stamp = now.toISOString();

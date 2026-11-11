@@ -4,7 +4,8 @@ import { siteName } from "../core/links";
 import type { Trace } from "../trace/store";
 import { quoted, verdictWords } from "./words";
 
-export function Home({ note, recent, deepOut }: { note: string | null; recent: Trace[]; deepOut: boolean }) {
+/** `deepOut`: "today" when the day's deep searches are used, "off" when they are switched off, null when one is to be had. */
+export function Home({ note, recent, deepOut }: { note: string | null; recent: Trace[]; deepOut: "today" | "off" | null }) {
   return (
     <main class="page">
       <h1>Where did that number come from?</h1>
@@ -18,10 +19,15 @@ export function Home({ note, recent, deepOut }: { note: string | null; recent: T
         </p>
       ) : null}
 
-      {deepOut ? (
+      {deepOut === "today" ? (
         <p class="note" role="status">
           Today's deep searches are used up. A trace started now follows links only and takes under a minute. The deep search is back at midnight UTC; trace the same
           sentence again after that and it starts afresh with the full search.
+        </p>
+      ) : null}
+      {deepOut === "off" ? (
+        <p class="note" role="status">
+          Deep searches are switched off for now. A trace started now follows links only and takes under a minute.
         </p>
       ) : null}
 
@@ -40,9 +46,11 @@ export function Home({ note, recent, deepOut }: { note: string | null; recent: T
           </button>
         </div>
         <p class="hint">
-          {deepOut
+          {deepOut === "today"
             ? "The first steps appear within seconds. Today the trace stops there, with links only."
-            : "The first steps appear within seconds. The full trail usually takes 4 to 6 minutes, and you can watch it grow."}
+            : deepOut === "off"
+              ? "The first steps appear within seconds. For now the trace stops there, with links only."
+              : "The first steps appear within seconds. The full trail usually takes 4 to 6 minutes, and you can watch it grow."}
         </p>
       </form>
 

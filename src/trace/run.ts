@@ -1,10 +1,10 @@
 // A trace from start to finish, as a list of small named steps. Each step does one small
 // thing, because a free Cloudflare Worker allows little processing and few outside calls
 // per step. The Workflow runs these steps; tests run them with a stand-in.
-import { FOLLOW_DEPTH, FOLLOW_PAGES_PER_TRY, POLL_MS, POLL_TURNS } from "../core/limits";
+import { BOOK_AFTER_MS, FOLLOW_DEPTH, FOLLOW_PAGES_PER_TRY, POLL_MS, POLL_TURNS } from "../core/limits";
 import type { Env } from "../env";
 import { checkProposed, loadProposed, skipProposed } from "./check";
-import { giveUpDeep, pollDeep, startDeep } from "./deep";
+import { bookDeep, giveUpDeep, pollDeep, startDeep } from "./deep";
 import { finishTrace } from "./finish";
 import { followOnce, readStart } from "./follow";
 import { updateTrace } from "./store";
@@ -20,6 +20,7 @@ const LINKS_PER_HOP = FOLLOW_PAGES_PER_TRY * 2;
 
 export async function runTrace(env: Env, traceId: string, step: TraceStep, clock: () => Date = () => new Date()): Promise<void> {
   const stamp = () => clock().toISOString();
+  let deepStarted = false;
   try {
     // 1. The fast engine: the page, then its links, as deep as they go.
     let { candidates } = await step.do("read the page", () => readStart(env, traceId, stamp()));
@@ -43,6 +44,7 @@ export async function runTrace(env: Env, traceId: string, step: TraceStep, clock
 
     // 2. The deep engine: start it, wait for it, then check every step it proposes.
     const deep = await step.do("start the deep search", () => startDeep(env, traceId, clock()));
+    deepStarted = deep.started;
     if (deep.started) {
       let state: "running" | "completed" | "failed" = "running";
       for (let turn = 0; turn < POLL_TURNS && state === "running"; turn++) {
@@ -68,5 +70,13 @@ export async function runTrace(env: Env, traceId: string, step: TraceStep, clock
   } catch (err) {
     await updateTrace(env.DB, traceId, { status: "failed", error: err instanceof Error ? err.message.slice(0, 200) : "unknown", finishedAt: stamp() });
     throw err;
+  }
+
+  // 4. The books. The trail is done and on screen; only now is the wallet read again, to see
+  // whether a run started as a free one was charged after all. A failure here is passed on,
+  // so it shows in the Workflow's own record, but it does not touch the finished trail.
+  if (deepStarted) {
+    await step.sleep("let the charge land", BOOK_AFTER_MS);
+    await step.do("book the deep search", () => bookDeep(env, traceId, stamp()));
   }
 }

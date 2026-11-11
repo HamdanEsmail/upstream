@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { bookDeep } from "../src/trace/deep";
 import { runTrace, type TraceStep } from "../src/trace/run";
 import { countOf, getChanges, getEvents, getSteps, getTrace, insertTrace, totals } from "../src/trace/store";
 import { fetchMock } from "./helpers/fetch-mock";
@@ -61,6 +62,8 @@ type World = {
   /** What the count of today's runs and the read of the run answer with; 200 unless a test breaks them. */
   listStatus: number;
   runStatus: number;
+  /** What each account's wallet holds on successive reads, by key. The last value repeats; null is a read that fails. */
+  wallet: Record<string, (number | null)[]>;
   archive: Record<string, { copy: string; timestamp: string } | undefined>;
   fetched: string[][];
   startedWith: string[];
@@ -77,6 +80,7 @@ function world(over: Partial<World> = {}): World {
     startStatus: 200,
     listStatus: 200,
     runStatus: 200,
+    wallet: { "test-tinyfish-key": [27], "test-tinyfish-key-2": [35.97] },
     archive: {},
     fetched: [],
     startedWith: [],
@@ -124,6 +128,20 @@ function world(over: Partial<World> = {}): World {
     url: "https://agent.tinyfish.ai/v1/research-run/run-1",
     times: Infinity,
     reply: () => (w.runStatus === 200 ? Response.json(w.runStates[Math.min(reads++, w.runStates.length - 1)]) : Response.json({ error: { code: "FORBIDDEN" } }, { status: w.runStatus })),
+  });
+  const walletReads: Record<string, number> = {};
+  fetchMock.intercept({
+    method: "GET",
+    url: "https://agent.tinyfish.ai/v1/wallet",
+    times: Infinity,
+    reply: (req) => {
+      const key = req.headers.get("X-API-Key") ?? "";
+      const values = w.wallet[key] ?? [50];
+      const read = walletReads[key] ?? 0;
+      walletReads[key] = read + 1;
+      const value = values[Math.min(read, values.length - 1)];
+      return typeof value === "number" ? Response.json({ available_balance: String(value), currency: "USD" }) : Response.json({ error: { code: "SERVICE_BUSY" } }, { status: 503 });
+    },
   });
   fetchMock.intercept({
     method: "GET",
@@ -320,6 +338,141 @@ describe("never spending by accident", () => {
     await runTrace(env, "t1", step, clock);
     expect(step.names.filter((n) => n.startsWith("wait"))).toHaveLength(1);
     expect(await getTrace(env.DB, "t1")).toMatchObject({ status: "done", verdict: "not_settled" });
+  });
+
+  it("starts no free run on an account whose wallet cannot be read, and pays for none", async () => {
+    const w = world({ wallet: { "test-tinyfish-key": [null], "test-tinyfish-key-2": [null] } });
+    await newTrace();
+    await runTrace(env, "t1", fakeStep(), clock);
+    expect(w.startedWith).toEqual([]);
+    expect(await countOf(env.DB, "2026-11-11", "research:main")).toBe(0);
+    expect(await countOf(env.DB, "all", "research:paid")).toBe(0);
+    expect(await getTrace(env.DB, "t1")).toMatchObject({ status: "done", verdict: "not_settled", spendUsd: 0, researchRunId: null });
+    expect((await getEvents(env.DB, "t1", 50)).map((e) => e.message)).toContain(
+      "Today's deep-search allowance could not be checked, so none was started. This trail comes from following links only.",
+    );
+  });
+
+  it("uses the second account when only the main account's wallet cannot be read", async () => {
+    const w = world({ wallet: { "test-tinyfish-key": [null], "test-tinyfish-key-2": [35.97] } });
+    await newTrace();
+    await runTrace(env, "t1", fakeStep(), clock);
+    expect(w.startedWith).toEqual(["test-tinyfish-key-2"]);
+    expect(await getTrace(env.DB, "t1")).toMatchObject({ researchAccount: "second", walletBefore: 35.97, spendUsd: 0 });
+  });
+});
+
+describe("what a free deep search really cost", () => {
+  const CHARGED = "This deep search was started as a free one, and the wallet shows it was charged $2. It is paid from the reserve.";
+
+  it("leaves it at $0 when the wallet did not fall by the price of a run", async () => {
+    // Twelve cents went on something else while the run was going.
+    world({ wallet: { "test-tinyfish-key": [27, 26.88] } });
+    await newTrace();
+    const step = fakeStep();
+    await runTrace(env, "t1", step, clock);
+    expect(await getTrace(env.DB, "t1")).toMatchObject({ status: "done", spendUsd: 0, walletBefore: 27, walletAfter: 26.88, bookedAt: NOW.toISOString() });
+    expect(await totals(env.DB)).toMatchObject({ spendUsd: 0 });
+    expect(await countOf(env.DB, "all", "research:charged")).toBe(0);
+    expect(await countOf(env.DB, "all", "research:paid")).toBe(0);
+    // The wallet is read again only after the trail is done, so no visitor waits for it.
+    expect(step.names.slice(-3)).toEqual(["finish", "let the charge land", "book the deep search"]);
+  });
+
+  it("books it at the price when the wallet shows it was charged after all, and takes it from the reserve", async () => {
+    world({ wallet: { "test-tinyfish-key": [27, 25] } });
+    await newTrace();
+    await runTrace(env, "t1", fakeStep(), clock);
+    expect(await getTrace(env.DB, "t1")).toMatchObject({ status: "done", verdict: "changed_on_the_way", spendUsd: 2, walletBefore: 27, walletAfter: 25 });
+    expect(await totals(env.DB)).toMatchObject({ deepSearches: 1, spendUsd: 2 });
+    expect(await countOf(env.DB, "all", "research:charged")).toBe(1);
+    expect(await countOf(env.DB, "all", "research:paid")).toBe(1);
+    expect((await getEvents(env.DB, "t1", 50)).map((e) => e.message)).toContain(CHARGED);
+  });
+
+  it("books the price and never more when the wallet fell further: my other projects spend from it too", async () => {
+    world({ wallet: { "test-tinyfish-key": [27, 22.4] } });
+    await newTrace();
+    await runTrace(env, "t1", fakeStep(), clock);
+    expect(await getTrace(env.DB, "t1")).toMatchObject({ spendUsd: 2, walletAfter: 22.4 });
+    expect(await totals(env.DB)).toMatchObject({ spendUsd: 2 });
+  });
+
+  it("books the price when the wallet cannot be read afterwards, without calling the free runs off", async () => {
+    world({ wallet: { "test-tinyfish-key": [27, null] } });
+    await newTrace();
+    await runTrace(env, "t1", fakeStep(), clock);
+    expect(await getTrace(env.DB, "t1")).toMatchObject({ status: "done", spendUsd: 2, walletBefore: 27, walletAfter: null, bookedAt: NOW.toISOString() });
+    expect(await totals(env.DB)).toMatchObject({ spendUsd: 2 });
+    expect(await countOf(env.DB, "all", "research:paid")).toBe(1);
+    expect(await countOf(env.DB, "all", "research:charged")).toBe(0);
+  });
+
+  it("books the price when the wallet went up: a wallet that was topped up can no longer say", async () => {
+    world({ wallet: { "test-tinyfish-key": [27, 45] } });
+    await newTrace();
+    await runTrace(env, "t1", fakeStep(), clock);
+    expect(await getTrace(env.DB, "t1")).toMatchObject({ spendUsd: 2, walletAfter: 45 });
+    expect(await countOf(env.DB, "all", "research:charged")).toBe(0);
+  });
+
+  it("books a run once, however often the step is tried", async () => {
+    world({ wallet: { "test-tinyfish-key": [27, 25] } });
+    await newTrace();
+    await runTrace(env, "t1", fakeStep(), clock);
+    await bookDeep(env, "t1", NOW.toISOString());
+    await bookDeep(env, "t1", NOW.toISOString());
+    expect(await totals(env.DB)).toMatchObject({ spendUsd: 2 });
+    expect(await countOf(env.DB, "all", "research:paid")).toBe(1);
+    expect((await getEvents(env.DB, "t1", 50)).filter((e) => e.message === CHARGED)).toHaveLength(1);
+  });
+
+  it("leaves a run paid from the reserve as it was booked when it started", async () => {
+    world({ runsToday: { "test-tinyfish-key": 2, "test-tinyfish-key-2": 2 }, wallet: { "test-tinyfish-key": [27, 25] } });
+    await newTrace();
+    await runTrace(env, "t1", fakeStep(), clock);
+    expect(await getTrace(env.DB, "t1")).toMatchObject({ spendUsd: 2, walletBefore: null, bookedAt: null });
+    expect(await totals(env.DB)).toMatchObject({ spendUsd: 2 });
+    expect(await countOf(env.DB, "all", "research:paid")).toBe(1);
+  });
+
+  it("does not sink a finished trail when the booking breaks", async () => {
+    world();
+    await newTrace();
+    const step = fakeStep();
+    const broken: TraceStep = { do: (name, fn) => (name === "book the deep search" ? Promise.reject(new Error("no books")) : step.do(name, fn)), sleep: step.sleep };
+    await expect(runTrace(env, "t1", broken, clock)).rejects.toThrow("no books");
+    expect(await getTrace(env.DB, "t1")).toMatchObject({ status: "done", verdict: "changed_on_the_way", error: null });
+  });
+});
+
+describe("once a free run has been charged", () => {
+  const charged = () => env.DB.prepare("INSERT INTO limits (day, name, count) VALUES ('all', 'research:charged', 1)").run();
+
+  it("calls no run free again: the next deep search is paid from the reserve", async () => {
+    const w = world();
+    await charged();
+    await newTrace();
+    await runTrace(env, "t1", fakeStep(), clock);
+    expect(w.startedWith).toEqual(["test-tinyfish-key"]);
+    expect(await countOf(env.DB, "2026-11-11", "research:main")).toBe(0);
+    expect(await getTrace(env.DB, "t1")).toMatchObject({ spendUsd: 2, walletBefore: null });
+    expect((await getEvents(env.DB, "t1", 50)).map((e) => e.message)).toContain("Started the deep search. This one is paid for from the reserve ($2).");
+  });
+
+  it("starts none when the reserve is used as well, and promises none for midnight", async () => {
+    const w = world();
+    await charged();
+    await env.DB.prepare("INSERT INTO limits (day, name, count) VALUES ('all', 'research:paid', 1)").run();
+    await newTrace();
+    await runTrace(env, "t1", fakeStep(), clock);
+    expect(w.startedWith).toEqual([]);
+    const trace = await getTrace(env.DB, "t1");
+    expect(trace).toMatchObject({ status: "done", verdict: "not_settled", researchRunId: null, spendUsd: 0 });
+    expect(trace?.summary).toBe("The deep search did not run, so this trail shows only what following the page's links found. Deep searches are switched off for now.");
+    expect((await getEvents(env.DB, "t1", 50)).map((e) => e.message)).toContain(
+      "Deep searches are switched off for now: a run that should have been free was charged, and nothing is spent beyond the reserve. This trail comes from following links only.",
+    );
   });
 });
 
