@@ -12,8 +12,8 @@ Design: `../specs/2026-11-11-upstream-design.md`. I work through this list in or
 - [x] `links.ts`: `candidateLinks(pageUrl, links, near)` drops navigation and social links, puts the links near the highlight first, keeps 10.
 - [x] `trail.ts`: `sameAddress`, `mergeSteps`, `orderSteps`, `reachedBy`.
 - [x] `verdict.ts`: `decide(...)` with the precedence in the design, and which end it reached (the original or the earliest copy).
-- [ ] `fragment.ts`: `sentenceLink(url, sentence)`; PDFs get the plain address.
-- [ ] `cite.ts`: `citation(trail)` as plain text and Markdown.
+- [x] `fragment.ts`: `sentenceLink(url, sentence)`; PDFs get the plain address.
+- [x] `cite.ts`: `citation(trail)` as plain text and Markdown.
 
 ## 2. Reading the web (`src/tinyfish/`, `src/archive.ts`)
 
