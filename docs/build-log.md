@@ -108,4 +108,4 @@ The four trails on the first page were built from deep searches that had already
 
 A trail built that way now states no time. The row shows "26 pages" and "read by the deep search", and the API gives `seconds` as null. A trail traced fresh keeps its real time.
 
-It is live. I read the row on all four trails, on the page and in the extension's panel, and retook the picture at the top of the README, which showed the old row.
+It is live. I read the row on all four trails, on the page and in the markup the extension's panel loads, and retook the picture at the top of the README, which showed the old row.
