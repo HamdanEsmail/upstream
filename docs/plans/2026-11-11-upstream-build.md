@@ -48,9 +48,9 @@ Design: `../specs/2026-11-11-upstream-design.md`. I work through this list in or
 
 ## 6. Proof
 
-- [ ] Deploy, then trace the demo claims for real and keep their pages.
+- [ ] Deploy (done 11 November; four trails live), then trace the remaining demo claims for real and keep their pages.
 - [ ] A test by someone who has never seen it; fix what is really broken.
-- [ ] README with a real screenshot, the build log, the runbook.
+- [x] README with a real screenshot, the build log, the runbook.
 - [ ] The film and the submission texts.
 
 ## Notes from running the core over four real traces (11 November)

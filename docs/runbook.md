@@ -1,0 +1,79 @@
+# Runbook
+
+How I deploy Upstream, look after it, and curate what the first page shows.
+
+## Deploy
+
+One time:
+
+```bash
+npx wrangler d1 create upstream          # put the id it prints into wrangler.jsonc
+npx wrangler d1 migrations apply upstream --remote
+npx wrangler deploy
+npx wrangler secret put TINYFISH_API_KEY
+npx wrangler secret put TINYFISH_API_KEY_2   # optional: a second account that lends its free research runs
+npx wrangler secret put ADMIN_TOKEN          # a long random string
+```
+
+Every time after:
+
+```bash
+npm run extension    # only if public/assets/line.css or extension/ changed
+npm run check
+npx wrangler deploy
+```
+
+The address the Worker is deployed at must be the one in `wrangler.jsonc` (`PUBLIC_BASE_URL`), `extension/config.js` and `extension/manifest.json`. A test fails if the three disagree.
+
+## Settings
+
+| Setting | Where | Meaning |
+|---|---|---|
+| `PUBLIC_BASE_URL` | `wrangler.jsonc` vars | The address trail links are built from. |
+| `PAID_DEEP_BUDGET_USD` | `wrangler.jsonc` vars | The most that may ever be spent on paid deep searches, in dollars. `0` means free runs only. A run costs $2, so `6` allows three. |
+| `TINYFISH_API_KEY` | secret | The account everything runs on. |
+| `TINYFISH_API_KEY_2` | secret, optional | A second account. Only its free research runs are used. |
+| `ADMIN_TOKEN` | secret | For the admin routes below. |
+
+The fixed limits (traces per visitor and per day, pages read per day, how deep links are followed) are in `src/core/limits.ts`.
+
+## Admin routes
+
+All take `Authorization: Bearer <ADMIN_TOKEN>`.
+
+```bash
+# Build a trail from a research run that already finished (free, and listed on the first page)
+curl -X POST "$BASE/api/admin/adopt" -H "authorization: Bearer $ADMIN_TOKEN" -H "content-type: application/json" \
+  -d '{"page_url":"https://example.org/article","text":"The sentence as the page states it.","research_run_id":"<run id>","account":"main"}'
+
+# List a trail on the first page, or take it off with ?off=1
+curl -X POST "$BASE/api/admin/traces/<id>/feature" -H "authorization: Bearer $ADMIN_TOKEN"
+
+# Remove a trail and everything it holds
+curl -X DELETE "$BASE/api/admin/traces/<id>" -H "authorization: Bearer $ADMIN_TOKEN"
+```
+
+A visitor's own trace is never listed on the first page. It is reachable by its link.
+
+## What a deep search costs, and when
+
+1. A free run on the main account, while fewer than two were made there today.
+2. A free run on the second account, on the same rule.
+3. A paid run from the reserve, while the reserve has room. Only when both accounts answered that their free runs are used.
+4. Otherwise none: the trace follows links only and says the deep search is back at midnight UTC.
+
+"Today" is the UTC day. Runs made outside Upstream on the same accounts count: Upstream asks TinyFish how many runs each account made today before it takes a free one.
+
+To see what has been spent: `GET /api/stats`, or the footer of any page.
+
+## When something looks wrong
+
+| What I see | What it means | What I do |
+|---|---|---|
+| A trail says "Not settled" and "the deep search did not run" | The free runs and the reserve were used, or the count could not be read. | Nothing; it is back at midnight UTC. Trace the sentence again then: delete the trail first. |
+| A step says "the page could not be processed" | Reading or matching that page failed three times. The trail carried on without it. | Open the page by hand. Very large PDFs are the usual cause. |
+| A trail page says "This trace broke" | A step outside reading failed after its retries. | Trace the same sentence again; a broken trace is cleared and started afresh. Then read the Worker's logs. |
+| `429 daily_limit` | 40 new traces today, or fewer than 40 page reads left of the day's 500. | Wait for midnight UTC. |
+| The side panel says "Could not reach Upstream" | The service did not answer. | Check `GET /api/health`. |
+
+Logs: `npx wrangler tail upstream`. A Workflow's steps: the Cloudflare dashboard, Workers, Workflows, `upstream-trace`.
