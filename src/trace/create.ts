@@ -86,23 +86,29 @@ export async function createTrace(
   if (pageUrl === null || pageKey === null) return refuse(400, "bad_address");
 
   const textKey = await sha256(`${pageKey}\n${normalise(text).replace(/^["'\s]+|["'\s]+$/g, "")}`);
-  const existing = await findTraceByKey(env.DB, textKey);
-  // A trace that broke is cleared away, so the same claim can be traced again.
-  if (existing && existing.status === "failed") await deleteTraceFully(env.DB, existing.id);
-  else if (existing) return { ok: true, id: existing.id, reused: true };
-
   const stamp = now.toISOString();
   const day = stamp.slice(0, 10);
+  const existing = await findTraceByKey(env.DB, textKey);
+  // A trail finished without a deep search, on a day when none was left, is worth tracing
+  // again once a new day has brought the free runs back. Never one I listed on the first page.
+  const shallow = existing !== null && existing.status === "done" && existing.report === null && !existing.featured && existing.createdAt.slice(0, 10) < day;
+  // A trace that broke is cleared away, so the same claim can be traced again.
+  if (existing && existing.status === "failed") await deleteTraceFully(env.DB, existing.id);
+  else if (existing && !shallow) return { ok: true, id: existing.id, reused: true };
+  // When there is no room for a new trace, the shallow trail is still better than a refusal.
+  const fallBack = (code: keyof typeof REFUSALS): CreateResult => (existing && shallow ? { ok: true, id: existing.id, reused: true } : refuse(429, code));
+
   const visitorSlot = `visitor:${(await sha256(visitor)).slice(0, 16)}:${stamp.slice(11, 13)}`;
   if (limited) {
     // A trace that could not read its pages would only disappoint: stop before the reading budget runs dry.
-    if ((await countOf(env.DB, day, "fetch")) > READS_PER_DAY - READS_A_TRACE_NEEDS) return refuse(429, "daily_limit");
-    if (!(await takeSlot(env.DB, day, visitorSlot, TRACES_PER_VISITOR_PER_HOUR))) return refuse(429, "too_many_traces");
+    if ((await countOf(env.DB, day, "fetch")) > READS_PER_DAY - READS_A_TRACE_NEEDS) return fallBack("daily_limit");
+    if (!(await takeSlot(env.DB, day, visitorSlot, TRACES_PER_VISITOR_PER_HOUR))) return fallBack("too_many_traces");
     if (!(await takeSlot(env.DB, day, "traces", TRACES_PER_DAY))) {
       await giveBack(env.DB, day, visitorSlot);
-      return refuse(429, "daily_limit");
+      return fallBack("daily_limit");
     }
   }
+  if (existing && shallow) await deleteTraceFully(env.DB, existing.id);
 
   const id = newId();
   await insertTrace(env.DB, { id, pageUrl, text, textKey, near: webLinks(input.near), now: stamp });

@@ -70,7 +70,7 @@ To see what has been spent: `GET /api/stats`, or the footer of any page.
 
 | What I see | What it means | What I do |
 |---|---|---|
-| A trail says "Not settled" and "the deep search did not run" | The free runs and the reserve were used, or the count could not be read. | Nothing; it is back at midnight UTC. Trace the sentence again then: delete the trail first. |
+| A trail says "Not settled" and "the deep search did not run" | The free runs and the reserve were used, or the count could not be read. | Nothing; it is back at midnight UTC. Tracing the sentence again on a later day clears the shallow trail and starts afresh. To do it the same day, delete the trail first. |
 | A step says "the page could not be processed" | Reading or matching that page failed three times. The trail carried on without it. | Open the page by hand. Very large PDFs are the usual cause. |
 | A trail page says "This trace broke" | A step outside reading failed after its retries. | Trace the same sentence again; a broken trace is cleared and started afresh. Then read the Worker's logs. |
 | `429 daily_limit` | 40 new traces today, or fewer than 40 page reads left of the day's 500. | Wait for midnight UTC. |

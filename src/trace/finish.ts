@@ -86,7 +86,7 @@ export async function finishTrace(env: Env, traceId: string, now: Date): Promise
   if (trail === null) {
     summary =
       trace.researchRunId === null
-        ? "The deep search did not run, so this trail shows only what following the page's links found."
+        ? "The deep search did not run, so this trail shows only what following the page's links found. The day's deep searches return at midnight UTC: trace the sentence again after that for the full trail."
         : "The deep search gave no trail, so this shows only what following the page's links found.";
   }
 

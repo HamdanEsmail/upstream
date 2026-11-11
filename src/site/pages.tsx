@@ -104,8 +104,8 @@ export function HowPage({ reserveUsd }: { reserveUsd: number }) {
           {reserveUsd > 0
             ? `After that one costs $${RESEARCH_RUN_USD}, paid from a reserve of $${reserveUsd} in total. When the free runs and the reserve are used, a`
             : "When they are used, a"}{" "}
-          trace still follows links and says that the deep search is back at midnight UTC. A trail that exists is never traced twice: the same sentence on the same page
-          opens the saved trail.
+          trace still follows links and says that the deep search is back at midnight UTC. A trail that exists is not traced twice: the same sentence on the same page
+          opens the saved trail. The one exception is a trail made on a day when no deep search was left: trace that sentence again on a later day and it starts afresh.
         </p>
         <p>
           One visitor can start {TRACES_PER_VISITOR_PER_HOUR} new traces an hour, and all visitors together {TRACES_PER_DAY} a day.

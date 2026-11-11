@@ -90,7 +90,7 @@ Refusals are plain: `400 text_too_short`, `400 text_too_long`, `400 bad_address`
 
 - Following links is free. The deep search is free four times a day (two TinyResearch runs on each of my two accounts). After that a run costs $2 and is paid from a fixed reserve; when the free runs and the reserve are used, a trace still follows links and says that the deep search is back at midnight UTC.
 - If TinyFish will not say how many runs were made today, no run is started. Not knowing is never a reason to spend.
-- The same sentence on the same page is never traced twice. It opens the trail that exists.
+- The same sentence on the same page is not traced twice. It opens the trail that exists. The one exception: a trail made on a day when no deep search was left is traced afresh when the sentence is traced again on a later day.
 - One visitor can start 6 new traces an hour; all visitors together 40 a day. Upstream reads at most 500 pages a day.
 - Only trails I choose are listed on the first page.
 
@@ -106,7 +106,7 @@ npm run dev
 ```
 
 ```bash
-npm run check       # type check, 184 tests, and a dry-run deploy
+npm run check       # type check, 189 tests, and a dry-run deploy
 npm run extension   # copy the stylesheet into the extension and write the zip
 ```
 

@@ -39,7 +39,7 @@ Each of these has a test that failed first.
 
 The extension is small on purpose: one right-click entry, a side panel, and a marker on the page. The side panel does not draw the trail itself. It shows the markup the service draws, so the panel and the trail page cannot drift apart, and a fix to the page reaches the panel without a new install.
 
-I checked it in a real browser by loading it and driving its panel: it loads, reads a highlight, shows a trail from the service, links to the full trail, refuses a highlight that is too short, and underlines the traced sentence with the verdict beside it. The current Chrome ignores the switch that loads an extension from the command line, so that check ran in Edge, which is the same engine. The right-click entry cannot be driven that way; it is the one step left to try by hand in Chrome.
+I checked it in a real browser by loading it and driving its panel: it loads, reads a highlight, shows a trail from the service, links to the full trail, refuses a highlight that is too short, and underlines the traced sentence with the verdict beside it. The current Chrome ignores the switch that loads an extension from the command line, so that check ran in Edge, which is the same engine. The right-click entry cannot be driven that way, so I tried it by hand in Chrome: unzipped the download, loaded the folder, highlighted the magazine sentence from the first trail, and chose "Trace upstream". It worked.
 
 ## 11 November: spending by accident
 
@@ -54,3 +54,9 @@ I also gave Upstream its own daily reading budget of 500 pages. Fetch is free up
 ## 11 November: live
 
 Deployed to Cloudflare's free plan. The four trails were built on the live service from the morning's finished research runs, in 34 to 82 seconds each, with no step failing, the large PDFs included. Spend: $0.00. The paid reserve stays at 0 until a fresh trace has shown that a free run stays free.
+
+## 11 November: a shallow trail was kept for ever
+
+With the day's free deep searches used, I saw what a visitor gets: a trail from links only, marked "Not settled". That is honest. What was wrong came after it: the same sentence always opens the trail that exists, so that shallow trail would have been handed back the next day too, when the deep search was free again, and a visitor has no way to clear it.
+
+Now a trail that finished without a deep search is traced afresh when the sentence is traced again on a later day. On the same day it still opens the saved trail, and when the day's limits leave no room for a new trace it opens the old one. A trail I listed on the first page is never cleared. The trail's summary also says what to do: trace the sentence again after midnight UTC.

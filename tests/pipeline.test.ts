@@ -246,7 +246,9 @@ describe("which deep search a trace gets", () => {
     expect(step.names.some((n) => n.startsWith("wait"))).toBe(false);
     const trace = await getTrace(env.DB, "t1");
     expect(trace).toMatchObject({ status: "done", verdict: "not_settled", reached: "earliest_copy", researchRunId: null, spendUsd: 0 });
-    expect(trace?.summary).toBe("The deep search did not run, so this trail shows only what following the page's links found.");
+    expect(trace?.summary).toBe(
+      "The deep search did not run, so this trail shows only what following the page's links found. The day's deep searches return at midnight UTC: trace the sentence again after that for the full trail.",
+    );
     expect((await getSteps(env.DB, "t1")).map((s) => s.url)).toEqual([START, AGENCY]);
     expect((await getEvents(env.DB, "t1", 50)).map((e) => e.message)).toContain("Today's deep searches are used up. This trail comes from following links only; the deep search is back at midnight UTC.");
   });

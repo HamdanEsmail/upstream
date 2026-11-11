@@ -111,3 +111,50 @@ describe("createTrace after a failure", () => {
     expect((await createTrace(env, { pageUrl: PAGE, text: TEXT }, "admin", NOW, start, { limits: false })).ok).toBe(true);
   });
 });
+
+describe("createTrace on a trail that never got its deep search", () => {
+  const NEXT_DAY = new Date("2026-11-12T00:05:00.000Z");
+
+  async function finishedWithoutDeepSearch(): Promise<string> {
+    const first = await createTrace(env, { pageUrl: PAGE, text: TEXT }, "v", NOW, start);
+    if (!first.ok) throw new Error("setup");
+    await env.DB.prepare("UPDATE traces SET status = 'done', verdict = 'not_settled' WHERE id = ?").bind(first.id).run();
+    return first.id;
+  }
+
+  it("traces the claim afresh on a later day", async () => {
+    const old = await finishedWithoutDeepSearch();
+    const again = await createTrace(env, { pageUrl: PAGE, text: TEXT }, "v", NEXT_DAY, start);
+    expect(again).toMatchObject({ ok: true, reused: false });
+    expect(again.ok && again.id !== old).toBe(true);
+    expect(started).toHaveLength(2);
+    expect(await getTrace(env.DB, old)).toBeNull();
+  });
+
+  it("opens the same trail for the rest of the day it was made", async () => {
+    const old = await finishedWithoutDeepSearch();
+    const again = await createTrace(env, { pageUrl: PAGE, text: TEXT }, "v", new Date("2026-11-11T23:55:00.000Z"), start);
+    expect(again).toMatchObject({ ok: true, reused: true, id: old });
+    expect(started).toHaveLength(1);
+  });
+
+  it("opens the same trail on any later day once a deep search has reported", async () => {
+    const old = await finishedWithoutDeepSearch();
+    await env.DB.prepare("UPDATE traces SET research_run_id = 'run-1', report = 'A report.' WHERE id = ?").bind(old).run();
+    expect(await createTrace(env, { pageUrl: PAGE, text: TEXT }, "v", NEXT_DAY, start)).toMatchObject({ ok: true, reused: true, id: old });
+  });
+
+  it("never clears a trail that is listed on the first page", async () => {
+    const old = await finishedWithoutDeepSearch();
+    await env.DB.prepare("UPDATE traces SET featured = 1 WHERE id = ?").bind(old).run();
+    expect(await createTrace(env, { pageUrl: PAGE, text: TEXT }, "v", NEXT_DAY, start)).toMatchObject({ ok: true, reused: true, id: old });
+  });
+
+  it("opens the old trail when the day's limits leave no room for a new one", async () => {
+    const old = await finishedWithoutDeepSearch();
+    await env.DB.prepare("INSERT INTO limits (day, name, count) VALUES ('2026-11-12', 'traces', 40)").run();
+    expect(await createTrace(env, { pageUrl: PAGE, text: TEXT }, "v", NEXT_DAY, start)).toMatchObject({ ok: true, reused: true, id: old });
+    expect(await getTrace(env.DB, old)).not.toBeNull();
+    expect(started).toHaveLength(1);
+  });
+});
