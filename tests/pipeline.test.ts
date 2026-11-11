@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { bookDeep } from "../src/trace/deep";
-import { runTrace, type TraceStep } from "../src/trace/run";
+import { runLeg, runTrace, type Leg, type LegStep, type TraceStep } from "../src/trace/run";
 import { countOf, getChanges, getEvents, getSteps, getTrace, insertTrace, totals } from "../src/trace/store";
 import { fetchMock } from "./helpers/fetch-mock";
 
@@ -462,6 +462,88 @@ describe("what a free deep search really cost", () => {
     const broken: TraceStep = { do: (name, fn) => (name === "book the deep search" ? Promise.reject(new Error("no books")) : step.do(name, fn)), sleep: step.sleep };
     await expect(runTrace(env, "t1", broken, clock)).rejects.toThrow("no books");
     expect(await getTrace(env.DB, "t1")).toMatchObject({ status: "done", verdict: "changed_on_the_way", error: null });
+  });
+});
+
+describe("fitting the free plan, which allows a Workflow run 50 requests to other hosts", () => {
+  /** Runs a trace leg by leg, as the Workflow does, and counts the outside requests each leg made. */
+  async function legByLeg(id = "t1") {
+    const step = fakeStep();
+    const waiting: Leg[] = [{ part: "start" }];
+    const legs: { part: string; calls: number }[] = [];
+    const relay: LegStep = { do: step.do, sleep: step.sleep, handOver: async (leg) => void waiting.push(leg) };
+    for (let leg = waiting.shift(); leg; leg = waiting.shift()) {
+      const before = fetchMock.calls.length;
+      await runLeg(env, id, leg, relay, clock);
+      legs.push({ part: leg.part, calls: fetchMock.calls.length - before });
+    }
+    return legs;
+  }
+
+  it("keeps every leg to 45 outside requests, however slow the search and however hard its steps", async () => {
+    // Twelve proposed steps on pages that cannot be read. Each one costs a read, a saved copy
+    // looked up and read, a read of the two pages before it for a quote, and a date from the archive.
+    const hard = Array.from({ length: 12 }, (_, i) => ({
+      url: `https://gone.example/page-${i}`,
+      publisher: `Gone ${i}`,
+      date: "unknown",
+      wording: `Page ${i} once said that people spend most of their time indoors.`,
+      names_source: "none",
+      linked: false,
+    }));
+    world({
+      // The search is read 100 times before it is done: 25 minutes.
+      runStates: [...Array.from({ length: 100 }, () => ({ status: "RUNNING", evidence: [] })), { status: "COMPLETED", evidence: [], deep_result: { result: report(trail({ steps: hard })) } }],
+      archive: Object.fromEntries(hard.map((s) => [s.url, { copy: `http://web.archive.org/web/20100101000000/${s.url}`, timestamp: "20100101000000" }])),
+    });
+    await newTrace();
+
+    const legs = await legByLeg();
+
+    expect(legs.map((l) => l.part)).toEqual(["start", "wait", "wait", "wait", "check", "check", "book"]);
+    expect(Math.max(...legs.map((l) => l.calls))).toBeLessThanOrEqual(45);
+    // All the work was still done: 4 or 5 requests for each of the twelve steps.
+    expect(legs.filter((l) => l.part === "check").reduce((n, l) => n + l.calls, 0)).toBe(59);
+    expect(await getTrace(env.DB, "t1")).toMatchObject({ status: "done", researchRunId: "run-1" });
+    const gone = (await getSteps(env.DB, "t1")).filter((s) => s.url?.startsWith("https://gone.example/"));
+    expect(gone).toHaveLength(12);
+    expect(gone.every((s) => s.reading === "unreadable")).toBe(true);
+  });
+
+  it("takes a trail built from a finished run through the same legs", async () => {
+    world({ runStates: [{ status: "COMPLETED", evidence: [], deep_result: { result: report(trail()) } }] });
+    await newTrace();
+    await env.DB.prepare("UPDATE traces SET research_run_id = 'run-1', research_account = 'main', research_started_at = created_at WHERE id = 't1'").run();
+    const legs = await legByLeg();
+    expect(legs.map((l) => l.part)).toEqual(["start", "wait", "check", "book"]);
+    expect(await getTrace(env.DB, "t1")).toMatchObject({ status: "done", verdict: "changed_on_the_way", spendUsd: 0, bookedAt: null });
+  });
+
+  it("ends in one leg when there is no deep search to wait for", async () => {
+    world({ runsToday: { "test-tinyfish-key": 2, "test-tinyfish-key-2": 2 } });
+    await env.DB.prepare("INSERT INTO limits (day, name, count) VALUES ('all', 'research:paid', 1)").run();
+    await newTrace();
+    expect((await legByLeg()).map((l) => l.part)).toEqual(["start"]);
+    expect(await getTrace(env.DB, "t1")).toMatchObject({ status: "done", verdict: "not_settled" });
+  });
+
+  it("marks the trace failed when the rest cannot be handed over, so it does not show as working for ever", async () => {
+    world();
+    await newTrace();
+    const step = fakeStep();
+    const relay: LegStep = { do: step.do, sleep: step.sleep, handOver: () => Promise.reject(new Error("no room")) };
+    await expect(runLeg(env, "t1", { part: "start" }, relay, clock)).rejects.toThrow("no room");
+    expect(await getTrace(env.DB, "t1")).toMatchObject({ status: "failed", error: "no room" });
+  });
+
+  it("still books the deep search when the trace breaks after the search started", async () => {
+    world({ wallet: { "test-tinyfish-key": [27, 25] } });
+    await newTrace();
+    const step = fakeStep();
+    const broken: TraceStep = { do: (name, fn) => (name === "finish" ? Promise.reject(new Error("boom")) : step.do(name, fn)), sleep: step.sleep };
+    await expect(runTrace(env, "t1", broken, clock)).rejects.toThrow("boom");
+    expect(await getTrace(env.DB, "t1")).toMatchObject({ status: "failed", spendUsd: 2, walletBefore: 27, walletAfter: 25 });
+    expect(await countOf(env.DB, "all", "research:charged")).toBe(1);
   });
 });
 

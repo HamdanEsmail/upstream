@@ -30,10 +30,21 @@ export const FREE_RESEARCH_RUNS_PER_DAY = 2;
 /** What a research run costs after the free ones. */
 export const RESEARCH_RUN_USD = 2;
 /**
- * A free run is booked this long after its trail is done: TinyFish charges a run when it
- * completes, and this leaves the charge time to reach the wallet. No visitor waits for it.
+ * A free run is booked this long after its trail is done, to leave a charge time to reach the
+ * wallet: a TinyFish charge has been seen to land some minutes after its run ended. No visitor
+ * waits for it.
  */
-export const BOOK_AFTER_MS = 60_000;
+export const BOOK_AFTER_MS = 600_000;
+
+/**
+ * Cloudflare's free plan allows one Workflow run 50 requests to other hosts. A trace is
+ * therefore carried by several runs, one after another ("legs"), each kept well under that:
+ * the first reads the page, follows links and starts the deep search (16 requests at most),
+ * a waiting leg reads the search this many times, and a checking leg checks this many
+ * proposed steps (5 requests each at most).
+ */
+export const POLLS_PER_LEG = 40;
+export const CHECKS_PER_LEG = 8;
 
 /** The deep search is checked this often, at most this many times (30 minutes). */
 export const POLL_MS = 15_000;

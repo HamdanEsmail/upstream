@@ -125,3 +125,15 @@ The first page and the trail no longer promise that the deep search is "back at 
 One limit remains. A charge that reaches the wallet more than a minute after the trail is done is not seen. TinyFish's reference says a run is charged when it completes.
 
 It went live the same evening: three new columns on the live database first, then the deploy. The four trails and the numbers in the footer read the same before and after. I ran one trace on the live site to see the changed steps work against the live database. The day's free runs were used, so it followed links only, finished in 7 seconds and cost nothing, and I removed it afterwards. The wallet reading itself runs for the first time with the next free run; I checked that both accounts' wallets answer in the shape the code reads.
+
+## 11 November: fifty requests, and a charge that came late
+
+Two things I learned the same night changed this again, before any deep search had run on the live site.
+
+**Fifty requests.** Reading Cloudflare's limits for another project, I saw that the free plan allows one Workflow run 50 requests to other hosts, and I counted what a full trace makes: the page, the links, the start of the deep search, a read of it every 15 seconds for 4 to 6 minutes, and up to five requests for each step it proposes. A typical trace comes to about 45. A slow search or a trail with many archived pages goes past 50, and the trace would have broken in the middle. The four trails on the first page never met this, because they were built from searches that had already finished. Another project of mine had broken on the same limit the day before.
+
+A trace is now carried by several runs, one after another. The first reads the page, follows links and starts the deep search. A waiting run reads the search 40 times and hands on to the next. A checking run checks eight proposed steps and hands on. The last one does the books. Each run stays under 45 requests whatever the trace needs; a test runs a 25-minute search with twelve hard steps and counts them. A hand-over that is tried twice cannot start two runs, and one that fails marks the trace as broken, so it never shows as working for ever.
+
+**A charge that came late.** A small TinyFish charge on my other account reached the wallet some minutes after its run had ended. So the wallet is now read ten minutes after the trail is done, not one. And a trace that breaks after its deep search has started is booked all the same: before, such a run was never looked at again.
+
+One limit remains. A charge that reaches the wallet later than ten minutes after the trail is done is not seen, and neither is a search that is given up after 30 minutes and completes later.

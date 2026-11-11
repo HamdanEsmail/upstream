@@ -65,7 +65,7 @@ A visitor's own trace is never listed on the first page. It is reachable by its 
 
 "Today" is the UTC day. Runs made outside Upstream on the same accounts count: Upstream asks TinyFish how many runs each account made today before it takes a free one.
 
-A free run is checked against the wallet. The account's balance is read just before the run (`wallet_before` on the trace) and again a minute after the trail is done (`wallet_after`):
+A free run is checked against the wallet. The account's balance is read just before the run (`wallet_before` on the trace) and again ten minutes after the trail is done (`wallet_after`):
 
 - A fall of $2 or more: the run was charged. It is booked at $2, never more, because my other projects spend from the same wallets. It takes a place in the reserve, even when the reserve has no room, so a reserve raised later pays for one run fewer. The mark `research:charged` is set. While that mark is set no run is called free: rule 3 is the only one left.
 - A smaller fall, or none: the run was free.
@@ -95,3 +95,12 @@ npx wrangler d1 execute upstream --remote --command "DELETE FROM limits WHERE da
 The $2 that was booked stays on the books.
 
 Logs: `npx wrangler tail upstream`. A Workflow's steps: the Cloudflare dashboard, Workers, Workflows, `upstream-trace`.
+
+A trace is carried by several Workflow runs, one after another, because the free plan allows one run 50 requests to other hosts. Their ids are built from the trace's id:
+
+| Run id | What it does |
+|---|---|
+| `<trace>` | Reads the page, follows links, starts the deep search. A trace with no deep search ends here. |
+| `<trace>-wait-0`, `-wait-40`, `-wait-80` | Reads the deep search every 15 seconds, 40 times each. |
+| `<trace>-check-0`, `-check-8` | Checks the steps the deep search proposed, eight each, then finishes the trail. |
+| `<trace>-book` | Ten minutes after the trail is done, reads the wallet and books the deep search. It also runs when the trace broke after its deep search had started. |

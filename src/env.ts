@@ -1,4 +1,6 @@
 // The Worker's bindings and secrets.
+import type { TraceParams } from "./trace/workflow";
+
 export type Env = {
   DB: D1Database;
   ASSETS: Fetcher;
@@ -9,6 +11,6 @@ export type Env = {
   ADMIN_TOKEN: string;
   /** The most that may be spent in total on paid deep searches, in dollars. Unset means nothing. */
   PAID_DEEP_BUDGET_USD?: string;
-  TRACE_WORKFLOW: Workflow<{ traceId: string }>;
+  TRACE_WORKFLOW: Workflow<TraceParams>;
   PUBLIC_BASE_URL: string;
 };
