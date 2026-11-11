@@ -85,3 +85,9 @@ Reading a road-safety page for a later trail, I saw Upstream call "1.16 million 
 ## 11 November: the fixes go live
 
 Deployed. I then rebuilt the four trails one at a time from the same finished research runs, so the first page was never empty: each came back with the verdict it had before, in 26 to 70 seconds. The trail about the world's data now reads 7 of 7 steps found on their own pages and ends on the 2011 advertisement, word for word. The trail links in the README are new because a rebuilt trail gets a new address. Spend is still $0.00.
+
+## 11 November: the verdict landed inside a word
+
+Preparing the film, I read again what the extension draws on the page when a trail is done. It looked for the first 80 characters of the sentence, underlined those, and put the verdict tag where they ended. On any sentence longer than that, the underline stopped short and the tag sat in the middle of the sentence, often inside a word. My check in a real browser had only asked whether a tag and an underline existed, not where.
+
+Now it looks for the whole sentence first. If the page does not hold it in one piece, it finds the opening words and then the closing words after them, and never stops inside a word. The browser check now asks for the whole sentence to be underlined and the tag to follow it, on a plain paragraph and on one that runs through other elements. Both pass.

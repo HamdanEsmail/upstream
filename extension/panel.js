@@ -45,12 +45,30 @@ function clocks() {
 
 /** Runs inside the page: underlines the traced sentence and puts the verdict beside it. */
 function markOnPage(text, verdict, url) {
-  const probe = text.replace(/\s+/g, " ").trim().slice(0, 80);
+  const clean = text.replace(/\s+/g, " ").trim();
   const selection = window.getSelection();
-  if (!probe || !selection) return false;
-  selection.removeAllRanges();
-  if (!window.find(probe, false, false, true)) return false;
-  const range = selection.getRangeAt(0).cloneRange();
+  if (!clean || !selection) return false;
+  // Looks for the words from the top of the page, or from where the last find ended.
+  const found = (words, fromTop) => {
+    if (fromTop) selection.removeAllRanges();
+    return window.find(words, false, false, fromTop) ? selection.getRangeAt(0).cloneRange() : null;
+  };
+  // The whole sentence when the page holds it in one piece. Otherwise its opening words, and
+  // then its closing words where they follow, so the mark ends where the sentence ends.
+  let range = found(clean, true);
+  if (!range) {
+    range = found(clean.slice(0, 60), true);
+    if (!range) return false;
+    const tail = clean.length > 60 ? found(clean.slice(-40), false) : null;
+    if (tail && range.comparePoint(tail.endContainer, tail.endOffset) === 1) {
+      range.setEnd(tail.endContainer, tail.endOffset);
+    } else if (range.endContainer.nodeType === Node.TEXT_NODE) {
+      // Never stop inside a word: carry on to the next space.
+      const rest = range.endContainer.data.slice(range.endOffset);
+      const stop = rest.search(/\s/);
+      range.setEnd(range.endContainer, stop === -1 ? range.endContainer.data.length : range.endOffset + stop);
+    }
+  }
   selection.removeAllRanges();
   if (window.CSS && CSS.highlights) {
     const style = document.createElement("style");
