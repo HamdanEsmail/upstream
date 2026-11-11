@@ -1,9 +1,9 @@
 // Starting a trace: check the request, reuse a trail that already exists, keep to the limits.
-import { NEAR_MAX, TEXT_MAX, TEXT_MIN, TRACES_PER_DAY, TRACES_PER_VISITOR_PER_HOUR } from "../core/limits";
+import { NEAR_MAX, READS_A_TRACE_NEEDS, READS_PER_DAY, TEXT_MAX, TEXT_MIN, TRACES_PER_DAY, TRACES_PER_VISITOR_PER_HOUR } from "../core/limits";
 import { normalise } from "../core/text";
 import { addressKey } from "../core/trail";
 import type { Env } from "../env";
-import { deleteTrace, deleteTraceFully, findTraceByKey, giveBack, insertTrace, takeSlot } from "./store";
+import { countOf, deleteTrace, deleteTraceFully, findTraceByKey, giveBack, insertTrace, takeSlot } from "./store";
 
 export type CreateInput = { pageUrl: unknown; text: unknown; near?: unknown };
 
@@ -95,6 +95,8 @@ export async function createTrace(
   const day = stamp.slice(0, 10);
   const visitorSlot = `visitor:${(await sha256(visitor)).slice(0, 16)}:${stamp.slice(11, 13)}`;
   if (limited) {
+    // A trace that could not read its pages would only disappoint: stop before the reading budget runs dry.
+    if ((await countOf(env.DB, day, "fetch")) > READS_PER_DAY - READS_A_TRACE_NEEDS) return refuse(429, "daily_limit");
     if (!(await takeSlot(env.DB, day, visitorSlot, TRACES_PER_VISITOR_PER_HOUR))) return refuse(429, "too_many_traces");
     if (!(await takeSlot(env.DB, day, "traces", TRACES_PER_DAY))) {
       await giveBack(env.DB, day, visitorSlot);

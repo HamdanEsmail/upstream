@@ -10,7 +10,10 @@ const FETCH_API = "https://api.fetch.tinyfish.ai/";
 const START = "https://agent.tinyfish.ai/v1/automation/run-research-async";
 const RUN = "https://agent.tinyfish.ai/v1/research-run/run-1";
 
-beforeEach(() => fetchMock.activate());
+beforeEach(async () => {
+  fetchMock.activate();
+  await env.DB.prepare("DELETE FROM limits").run();
+});
 afterEach(() => fetchMock.reset());
 
 describe("readPages", () => {
@@ -57,6 +60,23 @@ describe("readPages", () => {
       { url: "https://a.example/x", ok: false, error: "no_text" },
       { url: "https://b.example/y", ok: false, error: "no_result" },
     ]);
+  });
+
+  it("counts every address it reads against the day's reading budget", async () => {
+    fetchMock.intercept({ method: "POST", url: FETCH_API, reply: { json: { results: [], errors: [] } } });
+    await readPages(env, ["https://a.example/x", "https://b.example/y", "https://c.example/z"]);
+    const row = await env.DB.prepare("SELECT SUM(count) AS n FROM limits WHERE name = 'fetch'").first<{ n: number }>();
+    expect(row?.n).toBe(3);
+  });
+
+  it("reads nothing, and makes no call, once the day's reading budget is used", async () => {
+    const day = new Date().toISOString().slice(0, 10);
+    await env.DB.prepare("INSERT INTO limits (day, name, count) VALUES (?, 'fetch', 499)").bind(day).run();
+    expect(await readPages(env, ["https://a.example/x", "https://b.example/y"])).toEqual([
+      { url: "https://a.example/x", ok: false, error: "reading_budget_used" },
+      { url: "https://b.example/y", ok: false, error: "reading_budget_used" },
+    ]);
+    expect(fetchMock.calls).toHaveLength(0);
   });
 
   it("refuses more than ten addresses and makes no call for none", async () => {

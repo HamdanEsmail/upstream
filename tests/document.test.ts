@@ -164,6 +164,11 @@ describe("buildDocument", () => {
     expect(doc?.steps[2]?.title).toBeNull();
   });
 
+  it("shows a title's characters, not their codes", async () => {
+    await saveSteps(env.DB, "t1", [step({ reachedBy: "start", wording: "A sentence here.", title: "Big data: 90% of world&apos;s data &amp; more &#8211; a &quot;report&quot;" })]);
+    expect((await buildDocument(env, "t1"))?.steps[0]?.title).toBe("Big data: 90% of world's data & more – a \"report\"");
+  });
+
   it("opens a saved copy when that is where the step was read, and a PDF without a sentence link", async () => {
     await saveSteps(env.DB, "t1", [
       step({ reachedBy: "start", wording: "People spend 90 percent of their time indoors." }),

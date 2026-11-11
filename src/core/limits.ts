@@ -6,7 +6,15 @@ export const TEXT_MAX = 600;
 
 /** New traces one visitor may start in an hour, and all visitors together in a day. */
 export const TRACES_PER_VISITOR_PER_HOUR = 6;
-export const TRACES_PER_DAY = 60;
+export const TRACES_PER_DAY = 40;
+
+/**
+ * Pages Upstream may read in a day. TinyFish Fetch is free up to 1,000 pages a day on the
+ * account, and my other projects read with the same account, so Upstream keeps to half.
+ */
+export const READS_PER_DAY = 500;
+/** A new trace is started only while at least this much of the reading budget is left. */
+export const READS_A_TRACE_NEEDS = 40;
 
 /** Links from the highlighted paragraph that are kept. */
 export const NEAR_MAX = 20;

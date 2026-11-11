@@ -59,8 +59,14 @@ describe("createTrace", () => {
   });
 
   it("stops new traces for everyone at the daily limit", async () => {
-    await env.DB.prepare("INSERT INTO limits (day, name, count) VALUES ('2026-11-11', 'traces', 60)").run();
+    await env.DB.prepare("INSERT INTO limits (day, name, count) VALUES ('2026-11-11', 'traces', 40)").run();
     expect(await createTrace(env, { pageUrl: PAGE, text: TEXT }, "v", NOW, start)).toMatchObject({ ok: false, status: 429, code: "daily_limit" });
+  });
+
+  it("starts no new trace when too little of the day's reading budget is left for one", async () => {
+    await env.DB.prepare("INSERT INTO limits (day, name, count) VALUES ('2026-11-11', 'fetch', 470)").run();
+    expect(await createTrace(env, { pageUrl: PAGE, text: TEXT }, "v", NOW, start)).toMatchObject({ ok: false, status: 429, code: "daily_limit" });
+    expect(started).toEqual([]);
   });
 
   it("leaves nothing behind when the work could not be started", async () => {
@@ -101,7 +107,7 @@ describe("createTrace after a failure", () => {
   });
 
   it("skips the visitor and daily limits when told to", async () => {
-    await env.DB.prepare("INSERT INTO limits (day, name, count) VALUES ('2026-11-11', 'traces', 60)").run();
+    await env.DB.prepare("INSERT INTO limits (day, name, count) VALUES ('2026-11-11', 'traces', 40)").run();
     expect((await createTrace(env, { pageUrl: PAGE, text: TEXT }, "admin", NOW, start, { limits: false })).ok).toBe(true);
   });
 });

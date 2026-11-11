@@ -82,8 +82,23 @@ function nameOf(s: StoredStep): string {
   return s.publisher !== "" && s.publisher.length <= NAME_MAX ? s.publisher : siteName(s.url);
 }
 
+const NAMED: Record<string, string> = { amp: "&", apos: "'", quot: '"', lt: "<", gt: ">", nbsp: " ", ndash: "–", mdash: "—", rsquo: "’", lsquo: "‘", rdquo: "”", ldquo: "“" };
+
+/** Page titles sometimes arrive with character codes left in ("world&apos;s"). The page shows the characters. */
+function decoded(s: string): string {
+  return s.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (whole, code) => {
+    const c = String(code).toLowerCase();
+    if (c.startsWith("#x")) return String.fromCodePoint(parseInt(c.slice(2), 16) || 0xfffd);
+    if (c.startsWith("#")) return String.fromCodePoint(parseInt(c.slice(1), 10) || 0xfffd);
+    return NAMED[c] ?? whole;
+  });
+}
+
 /** A page title worth showing: long enough to say something, clipped when very long. */
-const titleOf = (s: StoredStep): string | null => (s.title !== null && s.title.trim().length >= 8 ? clip(s.title.trim(), TITLE_MAX) : null);
+function titleOf(s: StoredStep): string | null {
+  const title = s.title === null ? "" : decoded(s.title).trim();
+  return title.length >= 8 ? clip(title, TITLE_MAX) : null;
+}
 
 /** What a change note points at in the newer sentence: the new figure, or the word a year became. */
 function target(change: StoredChange): string | null {

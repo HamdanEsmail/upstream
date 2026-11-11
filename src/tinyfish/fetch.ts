@@ -1,6 +1,8 @@
 // TinyFish Fetch: reads pages as text, with their links, dates and authors. Free, and one
 // call carries up to ten addresses, which matters on a plan that counts outside requests.
+import { READS_PER_DAY } from "../core/limits";
 import type { Env } from "../env";
+import { takeMany } from "../trace/store";
 import { TinyFishError, readJson, tinyfishFetch } from "./client";
 
 const FETCH_API = "https://api.fetch.tinyfish.ai";
@@ -27,6 +29,9 @@ function day(v: unknown): string | null {
 export async function readPages(env: Env, urls: string[]): Promise<PageRead[]> {
   if (urls.length > MOST) throw new RangeError(`readPages takes at most ${MOST} addresses`);
   if (urls.length === 0) return [];
+  // The day's reading budget is taken before the call; a page not read for this reason says so.
+  const today = new Date().toISOString().slice(0, 10);
+  if (!(await takeMany(env.DB, today, "fetch", urls.length, READS_PER_DAY))) return urls.map((url) => ({ url, ok: false, error: "reading_budget_used" }));
 
   let body: { results?: Result[]; errors?: Failure[] };
   try {

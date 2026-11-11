@@ -263,6 +263,17 @@ export async function takeSlot(db: D1Database, day: string, name: string, limit:
   return row !== null;
 }
 
+/** Takes `n` units of a daily budget at once, or none when fewer than `n` are left. */
+export async function takeMany(db: D1Database, day: string, name: string, n: number, limit: number): Promise<boolean> {
+  if (n <= 0) return true;
+  if (n > limit) return false;
+  const row = await db
+    .prepare("INSERT INTO limits (day, name, count) VALUES (?, ?, ?) ON CONFLICT (day, name) DO UPDATE SET count = count + ? WHERE limits.count + ? <= ? RETURNING count")
+    .bind(day, name, n, n, n, limit)
+    .first<{ count: number }>();
+  return row !== null;
+}
+
 export async function giveBack(db: D1Database, day: string, name: string): Promise<void> {
   await db.prepare("UPDATE limits SET count = MAX(count - 1, 0) WHERE day = ? AND name = ?").bind(day, name).run();
 }
