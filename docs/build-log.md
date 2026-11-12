@@ -163,3 +163,5 @@ The free-run code is still there. It is what found the change, and on a database
 **What I did not do.** I had two more claims ready, both checked beforehand without cost. Each would now be $2, so I left them. And a deep search paid from the reserve has still not run on the live service: the tests cover it, but the first real one will be a visitor's.
 
 One visitor can start six traces an hour, so one visitor can use the whole reserve. I have left that as it is and say so here.
+
+It is live. The reserve is $8: four deep searches in all, one of them the charged run, so three are left, and the first page says so. The five trails and the numbers in the footer read the same before and after the deploy.
