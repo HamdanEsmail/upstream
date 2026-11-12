@@ -161,6 +161,7 @@ describe("the pages", () => {
       const html = await (await call(path)).text();
       expect(html, path).toContain('<meta name="author" content="Hamdan Esmail"/>');
       expect(html, path).toMatch(/Built by\s*<a href="https:\/\/github\.com\/HamdanEsmail" rel="author">\s*Hamdan Esmail\s*<\/a>/);
+      expect(html, path).toMatch(/The code is on\s*<a href="https:\/\/github\.com\/HamdanEsmail\/upstream">\s*GitHub\s*<\/a>/);
     }
   });
 

@@ -7,6 +7,7 @@ const FONTS =
   "https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap";
 
 export const AUTHOR_URL = "https://github.com/HamdanEsmail";
+export const REPO_URL = "https://github.com/HamdanEsmail/upstream";
 
 export type SiteStats = { traces: number; steps: number; deepSearches: number; spendUsd: number };
 
@@ -88,6 +89,7 @@ export function Layout(props: {
               <a href={AUTHOR_URL} rel="author">
                 Hamdan Esmail
               </a>
+              . The code is on <a href={REPO_URL}>GitHub</a>
             </span>
           </footer>
         </body>
