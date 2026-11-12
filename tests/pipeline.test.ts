@@ -580,6 +580,19 @@ describe("once a free run has been charged", () => {
     expect(said.join(" ")).not.toMatch(/midnight|switched off|should have been free/);
   });
 
+  it("does not say the money is used up when a paid run could not be started and the reserve still has room", async () => {
+    world({ startStatus: 503 });
+    await charged();
+    await newTrace();
+    await runTrace(env, "t1", fakeStep(), clock);
+    expect(await paidRunsLeft(env)).toBe(1);
+    const trace = await getTrace(env.DB, "t1");
+    expect(trace).toMatchObject({ status: "done", researchRunId: null, spendUsd: 0 });
+    expect(trace?.summary).toBe(
+      "The deep search did not run, so this trail shows only what following the page's links found. Trace the sentence again on a later day for the full trail.",
+    );
+  });
+
   it("with a reserve of eight dollars and the charged run counted in it, pays for three more and no fourth", async () => {
     const w = world();
     const eight = { ...env, PAID_DEEP_BUDGET_USD: "8" };
