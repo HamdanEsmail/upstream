@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { bookDeep } from "../src/trace/deep";
+import { bookDeep, paidRunsLeft } from "../src/trace/deep";
 import { runLeg, runTrace, type Leg, type LegStep, type TraceStep } from "../src/trace/run";
 import { countOf, getChanges, getEvents, getSteps, getTrace, insertTrace, totals } from "../src/trace/store";
 import { fetchMock } from "./helpers/fetch-mock";
@@ -561,7 +561,7 @@ describe("once a free run has been charged", () => {
     expect((await getEvents(env.DB, "t1", 50)).map((e) => e.message)).toContain("Started the deep search. This one is paid for from the reserve ($2).");
   });
 
-  it("starts none when the reserve is used as well, and promises none for midnight", async () => {
+  it("starts none when the reserve is used as well, says what a deep search costs, and promises none for midnight", async () => {
     const w = world();
     await charged();
     await env.DB.prepare("INSERT INTO limits (day, name, count) VALUES ('all', 'research:paid', 1)").run();
@@ -570,10 +570,33 @@ describe("once a free run has been charged", () => {
     expect(w.startedWith).toEqual([]);
     const trace = await getTrace(env.DB, "t1");
     expect(trace).toMatchObject({ status: "done", verdict: "not_settled", researchRunId: null, spendUsd: 0 });
-    expect(trace?.summary).toBe("The deep search did not run, so this trail shows only what following the page's links found. Deep searches are switched off for now.");
-    expect((await getEvents(env.DB, "t1", 50)).map((e) => e.message)).toContain(
-      "Deep searches are switched off for now: a run that should have been free was charged, and nothing is spent beyond the reserve. This trail comes from following links only.",
+    expect(trace?.summary).toBe(
+      "The deep search did not run, so this trail shows only what following the page's links found. The money set aside for deep searches is used up.",
     );
+    const said = (await getEvents(env.DB, "t1", 50)).map((e) => e.message);
+    expect(said).toContain(
+      "No deep search was started: each one costs $2 at TinyFish, and the money set aside for them is used up. This trail comes from following links only.",
+    );
+    expect(said.join(" ")).not.toMatch(/midnight|switched off|should have been free/);
+  });
+
+  it("with a reserve of eight dollars and the charged run counted in it, pays for three more and no fourth", async () => {
+    const w = world();
+    const eight = { ...env, PAID_DEEP_BUDGET_USD: "8" };
+    await charged();
+    await env.DB.prepare("INSERT INTO limits (day, name, count) VALUES ('all', 'research:paid', 1)").run();
+    expect(await paidRunsLeft(eight)).toBe(3);
+
+    await newTrace();
+    await runTrace(eight, "t1", fakeStep(), clock);
+    expect(w.startedWith).toEqual(["test-tinyfish-key"]);
+    expect(await getTrace(env.DB, "t1")).toMatchObject({ spendUsd: 2, walletBefore: null });
+    expect((await getEvents(env.DB, "t1", 50)).map((e) => e.message)).toContain("Started the deep search. This one is paid for from the reserve ($2).");
+    expect(await paidRunsLeft(eight)).toBe(2);
+
+    await env.DB.prepare("UPDATE limits SET count = 4 WHERE day = 'all' AND name = 'research:paid'").run();
+    expect(await paidRunsLeft(eight)).toBe(0);
+    expect(await paidRunsLeft({ ...env, PAID_DEEP_BUDGET_USD: "0" })).toBe(0);
   });
 });
 

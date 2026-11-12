@@ -297,13 +297,46 @@ describe("what the site says about itself", () => {
     expect(html).not.toContain("usually takes 4 to 6 minutes, and you can watch it grow");
   });
 
-  it("promises nothing for midnight on the first page once a free run has been charged", async () => {
-    const today = new Date().toISOString().slice(0, 10);
-    await env.DB.prepare("INSERT INTO limits (day, name, count) VALUES (?, 'research:out', 1)").bind(today).run();
+  it("once a run has been charged and the reserve is used, warns on the first page before anyone has tried a trace that day", async () => {
     await env.DB.prepare("INSERT INTO limits (day, name, count) VALUES ('all', 'research:charged', 1)").run();
+    await env.DB.prepare("INSERT INTO limits (day, name, count) VALUES ('all', 'research:paid', 1)").run();
     const html = await (await call("/")).text();
-    expect(html).toContain("Deep searches are switched off for now. A trace started now follows links only");
+    expect(html).toContain("The money set aside for deep searches is used up, so a trace started now follows links only");
+    expect(html).toContain("The trails below show what a full search finds.");
+    expect(html).toContain("For now the trace stops there, with links only.");
+    expect(html).not.toContain("usually takes 4 to 6 minutes, and you can watch it grow");
     expect(html).not.toContain("back at midnight UTC");
+    expect(html).not.toContain("switched off");
+  });
+
+  it("once a run has been charged, says on the first page what a deep search costs and how many the reserve still pays for", async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    await env.DB.prepare("INSERT INTO limits (day, name, count) VALUES ('all', 'research:charged', 1)").run();
+    // A trace that found none earlier today, before the reserve was raised, no longer makes the page warn.
+    await env.DB.prepare("INSERT INTO limits (day, name, count) VALUES (?, 'research:out', 1)").bind(today).run();
+    await env.DB.prepare("INSERT INTO limits (day, name, count) VALUES ('all', 'research:paid', 1)").run();
+    const html = await (await app.request("https://upstream.test/", undefined, { ...env, PAID_DEEP_BUDGET_USD: "8" })).text();
+    expect(html).toContain("usually takes 4 to 6 minutes, and you can watch it grow");
+    expect(html).toContain("A deep search costs $2 at TinyFish, and Upstream can pay for 3 more.");
+    expect(html).not.toContain("is used up");
+  });
+
+  it("says nothing about a reserve on the first page while no run has been charged", async () => {
+    const html = await (await call("/")).text();
+    expect(html).toContain("usually takes 4 to 6 minutes, and you can watch it grow");
+    expect(html).not.toContain("Upstream can pay for");
+  });
+
+  it("says on the page about how it works what a deep search costs, and no longer calls it free", async () => {
+    const html = await (await app.request("https://upstream.test/how", undefined, { ...env, PAID_DEEP_BUDGET_USD: "8" })).text();
+    expect(html).toContain("TinyFish charges $2 for each one");
+    expect(html).toContain("a reserve of $8 in total, which is 4 searches");
+    expect(html).toContain("On 12 November the first run of the day was charged");
+    expect(html).not.toMatch(/free \d times a day|back at midnight/);
+
+    const none = await (await app.request("https://upstream.test/how", undefined, { ...env, PAID_DEEP_BUDGET_USD: "0" })).text();
+    expect(none).toContain("Nothing is set aside for them at present");
+    expect(none).not.toContain("a reserve of $");
   });
 
   it("describes the API on the page about how it works", async () => {

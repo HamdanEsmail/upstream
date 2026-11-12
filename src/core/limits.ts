@@ -25,9 +25,13 @@ export const FOLLOW_PAGES_PER_TRY = 5;
 /** The link follower reads only the start of each linked page; a source states its claim early. */
 export const FOLLOW_CHARS = 40_000;
 
-/** TinyFish gives two completed research runs a day free on each account. */
+/**
+ * TinyFish gave two completed research runs a day free on each account until 11 November 2026.
+ * A run is still started as a free one until the wallet has shown a charge, which it did on
+ * 12 November: see src/trace/deep.ts.
+ */
 export const FREE_RESEARCH_RUNS_PER_DAY = 2;
-/** What a research run costs after the free ones. */
+/** What TinyFish charges for a research run. */
 export const RESEARCH_RUN_USD = 2;
 /**
  * A free run is booked this long after its trail is done, to leave a charge time to reach the

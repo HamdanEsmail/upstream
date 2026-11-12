@@ -1,5 +1,5 @@
 // The plain pages: how it works, getting the extension, and not found.
-import { FOLLOW_DEPTH, FREE_RESEARCH_RUNS_PER_DAY, RESEARCH_RUN_USD, TRACES_PER_DAY, TRACES_PER_VISITOR_PER_HOUR } from "../core/limits";
+import { FOLLOW_DEPTH, RESEARCH_RUN_USD, TRACES_PER_DAY, TRACES_PER_VISITOR_PER_HOUR } from "../core/limits";
 
 export function HowPage({ reserveUsd }: { reserveUsd: number }) {
   return (
@@ -100,16 +100,19 @@ export function HowPage({ reserveUsd }: { reserveUsd: number }) {
       <h2>Limits and cost</h2>
       <div class="prose">
         <p>
-          Following links is free. The deep search is free {FREE_RESEARCH_RUNS_PER_DAY * 2} times a day.{" "}
-          {reserveUsd > 0
-            ? `After that one costs $${RESEARCH_RUN_USD}, paid from a reserve of $${reserveUsd} in total. When the free runs and the reserve are used, a`
-            : "When they are used, a"}{" "}
-          trace still follows links and says that the deep search is back at midnight UTC. A trail that exists is not traced twice: the same sentence on the same page
-          opens the saved trail. The one exception is a trail made on a day when no deep search was left: trace that sentence again on a later day and it starts afresh.
+          Following links is free. A deep search is a TinyFish research run, and TinyFish charges ${RESEARCH_RUN_USD} for each one.{" "}
+          {reserveUsd >= RESEARCH_RUN_USD
+            ? `Upstream pays for them from a reserve of $${reserveUsd} in total, which is ${Math.floor(reserveUsd / RESEARCH_RUN_USD)} searches. When the reserve is used, a`
+            : "Nothing is set aside for them at present, so a"}{" "}
+          trace follows links only and says so, and the trails on the first page show what a full search finds. A trail that exists is not traced twice: the same
+          sentence on the same page opens the saved trail. The one exception is a trail made when no deep search was to be had: trace that sentence again on a later day
+          and it starts afresh.
         </p>
         <p>
-          A free run is not taken on trust. Upstream reads the wallet before the run and again after the trail is done. If the run was charged after all, the charge is
-          added to the spend shown at the foot of every page, and from then on a deep search is started only when the reserve can pay for it.
+          Until 11 November 2026 TinyFish gave two research runs a day free on an account, and Upstream used those first. It did not take a free run on trust: it read
+          the wallet before the run and again ten minutes after the trail was done. On 12 November the first run of the day was charged. Upstream saw the $
+          {RESEARCH_RUN_USD} leave the wallet and added it to the spend shown at the foot of every page. Since then a deep search is started only when the reserve can
+          pay for it.
         </p>
         <p>
           One visitor can start {TRACES_PER_VISITOR_PER_HOUR} new traces an hour, and all visitors together {TRACES_PER_DAY} a day.

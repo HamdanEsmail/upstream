@@ -1,11 +1,14 @@
 // The first page: paste a claim and the page it is on, or open a trail that already exists.
-import { TEXT_MAX, TEXT_MIN } from "../core/limits";
+import { RESEARCH_RUN_USD, TEXT_MAX, TEXT_MIN } from "../core/limits";
 import { siteName } from "../core/links";
 import type { Trace } from "../trace/store";
 import { quoted, verdictWords } from "./words";
 
-/** `deepOut`: "today" when the day's deep searches are used, "off" when they are switched off, null when one is to be had. */
-export function Home({ note, recent, deepOut }: { note: string | null; recent: Trace[]; deepOut: "today" | "off" | null }) {
+/**
+ * `deepOut`: "today" when the day's deep searches are used, "off" when the reserve pays for no more, null when one is to be had.
+ * `paidLeft`: how many more the reserve pays for, once a run has been charged; null while runs are still thought free.
+ */
+export function Home({ note, recent, deepOut, paidLeft }: { note: string | null; recent: Trace[]; deepOut: "today" | "off" | null; paidLeft: number | null }) {
   return (
     <main class="page">
       <h1>Where did that number come from?</h1>
@@ -27,7 +30,8 @@ export function Home({ note, recent, deepOut }: { note: string | null; recent: T
       ) : null}
       {deepOut === "off" ? (
         <p class="note" role="status">
-          Deep searches are switched off for now. A trace started now follows links only and takes under a minute.
+          The money set aside for deep searches is used up, so a trace started now follows links only and takes under a minute. The trails below show what a full
+          search finds.
         </p>
       ) : null}
 
@@ -51,6 +55,7 @@ export function Home({ note, recent, deepOut }: { note: string | null; recent: T
             : deepOut === "off"
               ? "The first steps appear within seconds. For now the trace stops there, with links only."
               : "The first steps appear within seconds. The full trail usually takes 4 to 6 minutes, and you can watch it grow."}
+          {deepOut === null && paidLeft !== null && paidLeft > 0 ? ` A deep search costs $${RESEARCH_RUN_USD} at TinyFish, and Upstream can pay for ${paidLeft} more.` : null}
         </p>
       </form>
 

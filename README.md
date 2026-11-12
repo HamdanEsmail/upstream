@@ -8,7 +8,7 @@ Live: **https://upstream.hamdanesmail12-7a9.workers.dev**
 
 Built for the TinyFish Student Bounty Drop 002 ("Source Hunter"). TinyFish does all the reading: Fetch reads every page, and a TinyResearch run searches wider when the links run out.
 
-## Four real trails
+## Five real trails
 
 Each of these was traced from a sentence on a real page.
 
@@ -18,6 +18,7 @@ Each of these was traced from a sentence on a real page.
 | ["90% of the world's data has been created in the last two years"](https://upstream.hamdanesmail12-7a9.workers.dev/t/8f4cr5c9tv) | No original source | Eight steps, back to an advertisement dated 14 April 2011. No study or dataset is behind it, and it has been repeated as current ever since. |
 | ["Insanity is doing the same thing, over and over again, but expecting different results." — Albert Einstein](https://upstream.hamdanesmail12-7a9.workers.dev/t/mwjdgwwmvk) | Said by someone else | Five steps. No page on the trail shows that Einstein said it. The earliest appearance is a 1981 newspaper article, which survives only as quoted by a later page. |
 | ["It takes 21 days to build a habit and 90 days to make it permanent"](https://upstream.hamdanesmail12-7a9.workers.dev/t/amhejbhyyc) | No original source | No source at all was found for the 90 days. The 21 days come from a 1960 book that said "a minimum of about 21 days", and Upstream names what was lost: *careful words dropped: "usually", "a minimum of", "about"*. |
+| ["At the end of 2024, 123.2 million people worldwide were forcibly displaced"](https://upstream.hamdanesmail12-7a9.workers.dev/t/4emqnht65u) | Matches the original | Three steps. The UN refugee agency's own page carries the sentence word for word, and its June 2025 report gives the same figure. Nothing changed on the way, and the trail says so. |
 
 ## Try it
 
@@ -89,10 +90,9 @@ Refusals are plain: `400 text_too_short`, `400 text_too_long`, `400 bad_address`
 
 ## Limits and cost
 
-- Following links is free. The deep search is free four times a day (two TinyResearch runs on each of my two accounts). After that a run costs $2 and is paid from a fixed reserve; when the free runs and the reserve are used, a trace still follows links and says that the deep search is back at midnight UTC. The first page says so too, before you start one.
-- A free run is not taken on trust. Upstream reads the account's wallet before the run and again ten minutes after the trail is done. If the run was charged after all, the $2 is booked, shown in the footer of every page and taken from the reserve, and from then on no run is called free: a deep search is started only when the reserve can pay for it.
-- If TinyFish will not say how many runs were made today, or what the wallet holds, no run is started. Not knowing is never a reason to spend.
-- The same sentence on the same page is not traced twice. It opens the trail that exists. The one exception: a trail made on a day when no deep search was left is traced afresh when the sentence is traced again on a later day.
+- Following links is free. A deep search is a TinyResearch run, and TinyFish charges $2 for each one. Upstream pays for them from a fixed reserve, and the first page says how many it can still pay for. When the reserve is used, a trace still follows links and says so, and the first page says so before you start one.
+- Until 11 November 2026 TinyFish gave two research runs a day free on an account, and Upstream was built to use those first, on my two accounts. It did not take a free run on trust: it read the account's wallet before the run and again ten minutes after the trail was done, and it started no run when TinyFish would not say what the wallet held. On 12 November the first run of the day was charged. Upstream saw the $2 leave the wallet, booked it, showed it in the footer of every page and counted it against the reserve. Since then a deep search is started only when the reserve can pay for it.
+- The same sentence on the same page is not traced twice. It opens the trail that exists. The one exception: a trail made when no deep search was to be had is traced afresh when the sentence is traced again on a later day.
 - One visitor can start 6 new traces an hour; all visitors together 40 a day. Upstream reads at most 500 pages a day.
 - Only trails I choose are listed on the first page.
 
@@ -108,7 +108,7 @@ npm run dev
 ```
 
 ```bash
-npm run check       # type check, 239 tests, and a dry-run deploy
+npm run check       # type check, 243 tests, and a dry-run deploy
 npm run extension   # copy the stylesheet into the extension and write the zip
 ```
 

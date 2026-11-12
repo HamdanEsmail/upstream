@@ -1,11 +1,13 @@
-// The deep engine: a TinyResearch run. Free runs are used first (two a day on each
-// account); after that a run is paid for from a fixed reserve, and when that is gone the
-// trace carries on without one and says so.
+// The deep engine: a TinyResearch run. TinyFish charges $2 for each one. A run is paid for
+// from a fixed reserve, and when that is gone the trace carries on without one and says so.
 //
-// A run is called free only as long as the wallet agrees. The account's wallet is read before
+// Until 11 November 2026 TinyFish gave two runs a day free on each account, and this file
+// was written to use those first. That part is kept, because it is what found the change: a
+// run is called free only as long as the wallet agrees. The account's wallet is read before
 // a free run starts and again after the trail is done. The first time a run that should have
-// been free turns out to have been charged, Upstream stops calling runs free: from then on
-// every deep search is paid from the reserve, and when the reserve is used there are none.
+// been free turns out to have been charged (it happened on 12 November 2026), Upstream stops
+// calling runs free: from then on every deep search is paid from the reserve, and when the
+// reserve is used there are none.
 import { FREE_RESEARCH_RUNS_PER_DAY, RESEARCH_RUN_USD } from "../core/limits";
 import type { Env } from "../env";
 import { TinyFishError, type Account } from "../tinyfish/client";
@@ -30,13 +32,19 @@ export async function freeRunsOff(env: Env): Promise<boolean> {
   return (await countOf(env.DB, "all", CHARGED)) > 0;
 }
 
+/** How many more deep searches the reserve pays for. A charged run that was started as a free one has taken its place in it. */
+export async function paidRunsLeft(env: Env): Promise<number> {
+  return Math.max(0, reserveRuns(env) - (await countOf(env.DB, "all", PAID)));
+}
+
 /**
- * What the first page should warn of: "today" when a trace today found the deep searches
- * used up, "off" when it found none because free runs are switched off, null otherwise.
+ * What the first page should warn of. Once a run has been charged, only the reserve counts:
+ * "off" when it pays for no more, and that is known before anyone starts a trace. While runs
+ * are still thought free: "today" when a trace today found the day's deep searches used up.
  */
 export async function deepSearchesOut(env: Env, day: string): Promise<"today" | "off" | null> {
-  if ((await countOf(env.DB, day, OUT)) === 0) return null;
-  return (await freeRunsOff(env)) ? "off" : "today";
+  if (await freeRunsOff(env)) return (await paidRunsLeft(env)) === 0 ? "off" : null;
+  return (await countOf(env.DB, day, OUT)) === 0 ? null : "today";
 }
 
 /**
@@ -99,7 +107,7 @@ export async function startDeep(env: Env, traceId: string, now: Date): Promise<{
     const why = !counted
       ? "Today's deep-search allowance could not be checked, so none was started. This trail comes from following links only."
       : off
-        ? "Deep searches are switched off for now: a run that should have been free was charged, and nothing is spent beyond the reserve. This trail comes from following links only."
+        ? `No deep search was started: each one costs $${RESEARCH_RUN_USD} at TinyFish, and the money set aside for them is used up. This trail comes from following links only.`
         : "Today's deep searches are used up. This trail comes from following links only; the deep search is back at midnight UTC.";
     await addEvent(env.DB, traceId, why, stamp);
     // The first page reads this mark and warns the next visitor before they start a trace.

@@ -139,3 +139,27 @@ A trace is now carried by several runs, one after another. The first reads the p
 One limit remains. A charge that reaches the wallet later than ten minutes after the trail is done is not seen, and neither is a search that is given up after 30 minutes and completes later.
 
 It is live. To see the hand-overs on the real platform I built one test trail on the live site from a search that had already finished, under a throwaway sentence. Cloudflare's list showed its four runs, one after another: the first, `-wait-0`, `-check-0` and `-book`. The trail came out with the same steps and verdict as the one on the first page. I took it off the first page at once and removed it afterwards. What this does not show is a trace that needs more than 50 requests: that comes with the first slow search.
+
+## 12 November: the first search of the day was charged
+
+Until now every deep search behind a trail had been one of TinyFish's free runs: two a day on an account. I had built the wallet check the evening before because TinyFish's reference had stopped mentioning them, and I wanted one fresh trace on the live site to see the whole path work.
+
+I started it a little after 03:00 UTC, the first research run of the day on either account: a sentence about 123.2 million forcibly displaced people, highlighted on a page that links to the UN refugee agency.
+
+**What worked.** The trace ran from start to finish on the live service for the first time: four background runs, one after another, 7 minutes 18 seconds, 19 pages read by the deep search. The verdict is "Matches the original". The agency's own page carries the sentence word for word, and its June 2025 report gives the same figure. It is the fifth trail on the first page, and the first one where nothing changed on the way.
+
+**What it cost.** I read both wallets by hand as well. Two minutes after the trail was done the main wallet had not moved. Five minutes after, it was $2 lower. TinyFish's pricing page, read the same hour, no longer lists free research runs: a run is $2.
+
+Upstream found it without me. Ten minutes after the trail was done it read the wallet again, saw a fall of $2.01 against the reading it took before the run, booked the run at $2 and stopped calling runs free. The footer of every page went from $0.00 to $2.00, and the trail's own log says the search was started as a free one and was charged.
+
+**What I changed.** The service was right and its words were wrong. The page about how it works still said the deep search is free four times a day.
+
+- That page now says what a deep search costs, how much is set aside for them, and what happened on 12 November.
+- The first page used to warn that no deep search was to be had only after a visitor had started a trace that day and got links only. Once a run has been charged, the reserve alone decides, so the page now knows before anyone tries: it says how many more deep searches the reserve pays for, or that the money set aside is used up and the saved trails show what a full search finds.
+- A trail made without a deep search says the same, and no longer speaks of free runs or of midnight.
+
+The free-run code is still there. It is what found the change, and on a database where no run has been charged it would find it again on the first run.
+
+**What I did not do.** I had two more claims ready, both checked beforehand without cost. Each would now be $2, so I left them. And a deep search paid from the reserve has still not run on the live service: the tests cover it, but the first real one will be a visitor's.
+
+One visitor can start six traces an hour, so one visitor can use the whole reserve. I have left that as it is and say so here.

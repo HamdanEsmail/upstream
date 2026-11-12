@@ -11,7 +11,7 @@ npx wrangler d1 create upstream          # put the id it prints into wrangler.js
 npx wrangler d1 migrations apply upstream --remote
 npx wrangler deploy
 npx wrangler secret put TINYFISH_API_KEY
-npx wrangler secret put TINYFISH_API_KEY_2   # optional: a second account that lends its free research runs
+npx wrangler secret put TINYFISH_API_KEY_2   # optional: a second account, used only for free research runs while TinyFish gave them
 npx wrangler secret put ADMIN_TOKEN          # a long random string
 ```
 
@@ -31,9 +31,9 @@ The address the Worker is deployed at must be the one in `wrangler.jsonc` (`PUBL
 | Setting | Where | Meaning |
 |---|---|---|
 | `PUBLIC_BASE_URL` | `wrangler.jsonc` vars | The address trail links are built from. |
-| `PAID_DEEP_BUDGET_USD` | `wrangler.jsonc` vars | The most that may ever be spent on paid deep searches, in dollars. `0` means free runs only. A run costs $2, so `6` allows three. |
+| `PAID_DEEP_BUDGET_USD` | `wrangler.jsonc` vars | The most that may ever be spent on deep searches, in dollars. A run costs $2, so `8` allows four in all. A run that was started as a free one and then charged counts in it. With `0`, no deep search is started once a run has been charged. |
 | `TINYFISH_API_KEY` | secret | The account everything runs on. |
-| `TINYFISH_API_KEY_2` | secret, optional | A second account. Only its free research runs are used. |
+| `TINYFISH_API_KEY_2` | secret, optional | A second account. Only its free research runs were ever used. Since a run was charged on 12 November 2026 it is no longer called. |
 | `ADMIN_TOKEN` | secret | For the admin routes below. |
 
 The fixed limits (traces per visitor and per day, pages read per day, how deep links are followed) are in `src/core/limits.ts`.
@@ -58,6 +58,13 @@ A visitor's own trace is never listed on the first page. It is reachable by its 
 
 ## What a deep search costs, and when
 
+TinyFish charges $2 for a research run. On the live service every deep search is paid from the reserve:
+
+1. A paid run, while the reserve has room: `PAID_DEEP_BUDGET_USD` divided by 2, less the runs counted under `research:paid` in the `limits` table. The first page says how many are left.
+2. Otherwise none: the trace follows links only and says the money set aside is used up. The first page says so before anyone starts a trace.
+
+How it came to this. Until 11 November 2026 TinyFish gave two research runs a day free on an account, and Upstream used those first. On a database where no run has been charged, the code still starts that way:
+
 1. A free run on the main account, while fewer than two were made there today.
 2. A free run on the second account, on the same rule.
 3. A paid run from the reserve, while the reserve has room. Only when both accounts answered that their free runs are used.
@@ -65,7 +72,7 @@ A visitor's own trace is never listed on the first page. It is reachable by its 
 
 "Today" is the UTC day. Runs made outside Upstream on the same accounts count: Upstream asks TinyFish how many runs each account made today before it takes a free one.
 
-A free run is checked against the wallet. The account's balance is read just before the run (`wallet_before` on the trace) and again ten minutes after the trail is done (`wallet_after`):
+A run started as a free one is checked against the wallet. The account's balance is read just before the run (`wallet_before` on the trace) and again ten minutes after the trail is done (`wallet_after`):
 
 - A fall of $2 or more: the run was charged. It is booked at $2, never more, because my other projects spend from the same wallets. It takes a place in the reserve, even when the reserve has no room, so a reserve raised later pays for one run fewer. The mark `research:charged` is set. While that mark is set no run is called free: rule 3 is the only one left.
 - A smaller fall, or none: the run was free.
@@ -73,14 +80,17 @@ A free run is checked against the wallet. The account's balance is read just bef
 
 If the wallet cannot be read before a run, no free run is started on that account.
 
+That check is what found TinyFish's change. On 12 November 2026 the first run of the day on the main account (trace `4emqnht65u`, started 03:04 UTC) was followed by a fall of $2.01 in the wallet. The $2 arrived between two and five minutes after the trail was done. The run was booked at $2 and the mark has been set since.
+
 To see what has been spent: `GET /api/stats`, or the footer of any page.
 
 ## When something looks wrong
 
 | What I see | What it means | What I do |
 |---|---|---|
-| A trail says "Not settled" and "the deep search did not run" | The free runs and the reserve were used, or the count could not be read. | Nothing; it is back at midnight UTC. Tracing the sentence again on a later day clears the shallow trail and starts afresh. To do it the same day, delete the trail first. |
-| The first page says "Deep searches are switched off for now", or a trail's log says a free run was charged | A run started as a free one was followed by a fall of $2 or more in that account's wallet. | Compare `wallet_before` and `wallet_after` on that trace with what else I spent from that wallet in those minutes. If TinyFish did charge the run, leave it: the reserve decides from here. If the fall was my own other spending, switch free runs back on with the command below. |
+| A trail says "Not settled" and "the deep search did not run" | The reserve pays for no more. On a database where runs are still thought free: the day's free runs and the reserve were used, or the count could not be read. | Raise `PAID_DEEP_BUDGET_USD` and deploy, if more deep searches are wanted. Tracing the sentence again on a later day clears the shallow trail and starts afresh. To do it the same day, delete the trail first. |
+| The first page says "The money set aside for deep searches is used up" | A run has been charged, and the reserve pays for no more. | The same: raise the reserve, or leave it. |
+| A trail's log says a run started as a free one was charged | That run was followed by a fall of $2 or more in the account's wallet. | Compare `wallet_before` and `wallet_after` on that trace with what else I spent from that wallet in those minutes. If TinyFish did charge the run, leave it: the reserve decides from here. If the fall was my own other spending, clear the mark with the command below. |
 | A step says "the page could not be processed" | Reading or matching that page failed three times. The trail carried on without it. | Open the page by hand. Very large PDFs are the usual cause. |
 | A trail page says "This trace broke" | A step outside reading failed after its retries. | Trace the same sentence again; a broken trace is cleared and started afresh. Then read the Worker's logs. |
 | `429 daily_limit` | 40 new traces today, or fewer than 40 page reads left of the day's 500. | Wait for midnight UTC. |
@@ -92,7 +102,7 @@ To switch free runs back on, only after checking that the run was not charged:
 npx wrangler d1 execute upstream --remote --command "DELETE FROM limits WHERE day = 'all' AND name = 'research:charged'"
 ```
 
-The $2 that was booked stays on the books.
+The $2 that was booked stays on the books. TinyFish's price list has shown no free research runs since 12 November 2026, so on the live service there is no reason to run this.
 
 Logs: `npx wrangler tail upstream`. A Workflow's steps: the Cloudflare dashboard, Workers, Workflows, `upstream-trace`.
 

@@ -87,7 +87,7 @@ export async function finishTrace(env: Env, traceId: string, now: Date): Promise
   if (trail === null) {
     const links = "this trail shows only what following the page's links found.";
     if (trace.researchRunId !== null) summary = "The deep search gave no trail, so this shows only what following the page's links found.";
-    else if (await freeRunsOff(env)) summary = `The deep search did not run, so ${links} Deep searches are switched off for now.`;
+    else if (await freeRunsOff(env)) summary = `The deep search did not run, so ${links} The money set aside for deep searches is used up.`;
     else summary = `The deep search did not run, so ${links} The day's deep searches return at midnight UTC: trace the sentence again after that for the full trail.`;
   }
 
