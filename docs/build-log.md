@@ -196,3 +196,4 @@ A page with no date of its own is dated by the Internet Archive's first saved co
 
 **What I did not test.** A trace with both the search and a deep search has run only in the tests. On the live service it would cost $2 and one of the three that are left.
 
+It went live on 14 November at 11:04 UTC. The five trails, the numbers in the footer and the count of deep searches left read the same before and after the deploy, and each of the five still says "TinyFish Fetch and Research": none of them was made with the search. No trace was started on the live service to try it, because the first one will also take a deep search from the reserve.
