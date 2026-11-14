@@ -1014,6 +1014,76 @@ describe("searching the web for the sentence, when the links run out", () => {
     );
   });
 
+  describe("carrying on from what Search found", () => {
+    const on = (n: number) => `https://further${n}.example/report`;
+    const duds = (n: number) => Array.from({ length: 5 }, (_, i) => `https://nothing${n}-${i}.example/page`);
+    /** The leaflet links to a page that holds the sentence, which links to another, and so on: each a year older. */
+    const chain = (length: number, between: (n: number) => string[] = () => []): Record<string, Page> => {
+      const pages: Record<string, Page> = { ...PAGES, [LEAFLET]: { ...said("1999-03-01"), links: [...between(0), on(1)] } };
+      for (let n = 1; n <= length; n++) pages[on(n)] = { published_date: `${1999 - n}-03-01`, text: `${HIGHLIGHT}, as report ${n} put it.`, links: n < length ? [...between(n), on(n + 1)] : [] };
+      return pages;
+    };
+
+    it("follows the links of the oldest page Search found, as it follows any page's links", async () => {
+      await withoutDeep({ search: [{ url: LEAFLET }], pages: chain(1) });
+      await runTrace(env, "t1", fakeStep(), clock);
+      expect(await trailOf()).toEqual([
+        [START, "exact", "start", "2025-12-15", "page"],
+        [AGENCY, "close", "link", "2017-11-02", "page"],
+        [LEAFLET, "exact", "search", "1999-03-01", "page"],
+        // The leaflet links to it, so this step is joined to the trail by a link, not by the search.
+        [on(1), "exact", "link", "1998-03-01", "page"],
+      ]);
+      expect(await log()).toContain("Followed a link to further1.example.");
+    });
+
+    it("goes two links on from it and no further", async () => {
+      await withoutDeep({ search: [{ url: LEAFLET }], pages: chain(4) });
+      await runTrace(env, "t1", fakeStep(), clock);
+      expect((await trailOf()).map((s) => s[0])).toEqual([START, AGENCY, LEAFLET, on(1), on(2)]);
+    });
+
+    it("starts from the oldest of the pages Search found", async () => {
+      const newer = "https://newer.example/2005-article";
+      const pages = { ...chain(1), [newer]: { ...said("2005-05-05"), links: ["https://elsewhere.example/page"] } };
+      const w = await withoutDeep({ search: [{ url: newer, date: "2005-05-05" }, { url: LEAFLET, date: "1999-03-01" }], pages });
+      await runTrace(env, "t1", fakeStep(), clock);
+      expect(w.fetched[w.fetched.length - 1]).toEqual([on(1)]);
+      expect(w.fetched.flat()).not.toContain("https://elsewhere.example/page");
+    });
+
+    it("does not follow on when Search found nothing to keep", async () => {
+      await withoutDeep({ search: [{ url: LEAFLET }], pages: { ...PAGES, [LEAFLET]: { ...said("2020-05-05"), links: [on(1)] } } });
+      const step = fakeStep();
+      await runTrace(env, "t1", step, clock);
+      expect(step.names.some((n) => n.startsWith("follow on") || n.startsWith("take up the trail"))).toBe(false);
+    });
+
+    it("leaves the trail as it is when the follow-on breaks", async () => {
+      await withoutDeep({ search: [{ url: LEAFLET }], pages: chain(2) });
+      const step = fakeStep();
+      const real = step.do;
+      step.do = (name, fn) => (name.startsWith("follow on") || name.startsWith("take up the trail") ? Promise.reject(new Error("too heavy")) : real(name, fn));
+      await runTrace(env, "t1", step, clock);
+      expect(await getTrace(env.DB, "t1")).toMatchObject({ status: "done" });
+      expect((await trailOf()).map((s) => s[0])).toEqual([START, AGENCY, LEAFLET]);
+    });
+
+    it("fits the first leg's requests and gives every step its own name, with every follow-on link found on its second try", async () => {
+      const w = world({ search: [{ url: LEAFLET }], pages: chain(2, duds) });
+      await newTrace();
+      const step = fakeStep();
+      const waiting: Leg[] = [];
+      const relay: LegStep = { do: step.do, sleep: step.sleep, handOver: async (leg) => void waiting.push(leg) };
+      await runLeg(env, "t1", { part: "start" }, relay, clock);
+      // The page, 2 tries at its links, 1 question to Search, 1 read, 4 tries at the leaflet's links, 3 to start the deep search.
+      expect(fetchMock.calls.length).toBe(12);
+      expect(new Set(step.names).size).toBe(step.names.length);
+      expect(step.names.filter((n) => n.startsWith("follow on"))).toEqual(["follow on 1.1", "follow on 1.2", "follow on 2.1", "follow on 2.2"]);
+      expect(w.startedWith).toHaveLength(1);
+    });
+  });
+
   it("hands what Search found to the deep search, to check and go further back", async () => {
     world({ search: [{ url: LEAFLET }], pages: { ...PAGES, [LEAFLET]: said("1999-03-01") } });
     await newTrace();

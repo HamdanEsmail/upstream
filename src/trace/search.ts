@@ -62,6 +62,19 @@ export async function askSearch(env: Env, traceId: string, now: string): Promise
   return { candidates };
 }
 
+/**
+ * The links of the oldest page Search found, for the link follower to carry on from: an
+ * older page may link to where it got the sentence. Empty when Search found none.
+ */
+export async function linksFromSearch(env: Env, traceId: string): Promise<{ candidates: string[] }> {
+  const steps = await getSteps(env.DB, traceId);
+  let oldest: StoredStep | null = null;
+  for (const s of steps) if (s.reachedBy === "search" && s.url !== null && s.date !== null && (oldest === null || s.date < (oldest.date as string))) oldest = s;
+  if (oldest === null || oldest.url === null) return { candidates: [] };
+  const visited = steps.map((s) => s.url).filter((u): u is string => u !== null);
+  return { candidates: candidateLinks(oldest.url, oldest.links, []).filter((link) => !visited.some((v) => sameAddress(v, link))) };
+}
+
 type Hit = { page: Extract<PageRead, { ok: true }>; found: Found; date: string; dateSource: "page" | "archive" };
 
 /**

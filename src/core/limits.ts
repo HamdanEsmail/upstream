@@ -35,6 +35,8 @@ export const SEARCH_PAGES_PER_TRY = 5;
 export const SEARCH_KEEP = 3;
 /** Pages from Search that give no date of their own and are looked up at the Internet Archive, per try. */
 export const SEARCH_ARCHIVE_LOOKUPS = 2;
+/** How many links deep the link follower goes on from the oldest page Search found. */
+export const FOLLOW_ON_DEPTH = 2;
 
 /**
  * TinyFish gave two completed research runs a day free on each account until 11 November 2026.
@@ -54,8 +56,8 @@ export const BOOK_AFTER_MS = 600_000;
 /**
  * Cloudflare's free plan allows one Workflow run 50 requests to other hosts. A trace is
  * therefore carried by several runs, one after another ("legs"), each kept well under that:
- * the first reads the page, follows links, searches for the sentence and starts the deep
- * search (23 requests at most),
+ * the first reads the page, follows links, searches for the sentence, follows links on from
+ * what the search found and starts the deep search (27 requests at most),
  * a waiting leg reads the search this many times, and a checking leg checks this many
  * proposed steps (5 requests each at most).
  */

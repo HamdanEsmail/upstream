@@ -180,6 +180,9 @@ export function findClaim(pageText: string, rawClaim: string): Found {
 const SURE_AT = 0.8;
 /** A part of a claim is a statement of its own only from this many words. */
 const PART_WORDS = 6;
+/** Such a page must also hold this share of the claim's words in one unbroken run, and a run of at least this many. */
+const RUN_SHARE = 0.5;
+const RUN_WORDS = 5;
 const YEAR = /\b(?:1[5-9]\d\d|20\d\d)\b/g;
 
 /** The claim's meaning-carrying words that are written with a capital: names, and a word that opens the sentence. */
@@ -197,6 +200,33 @@ const holdsFigures = (figures: number[], text: string): boolean => {
   const theirs = numbers(text);
   return figures.every((value) => theirs.some((b) => b.value === value));
 };
+
+/** The sentence without its ranges: "80-90%" or "80 to 90 percent" is neither 80 nor 90. */
+const withoutRanges = (s: string): string => normalise(s).replace(/\d[\d.,]*\s*%?\s*(?:-|\bto\b)\s*\d[\d.,]*/g, " ");
+
+/** Every word of a sentence, lower case, in order: "90%" and "90 percent" read alike. */
+const words = (s: string): string[] =>
+  normalise(s)
+    .replace(/%/g, " percent ")
+    .split(/[^a-z0-9]+/)
+    .filter((w) => w !== "");
+
+/** The length, in words, of the longest run of words the two sentences share in the same order with nothing between. */
+function sharedRun(a: string[], b: string[]): number {
+  let best = 0;
+  let above = new Array<number>(b.length + 1).fill(0);
+  for (const wa of a) {
+    const row = new Array<number>(b.length + 1).fill(0);
+    for (const [j, wb] of b.entries()) {
+      if (wa !== wb) continue;
+      const run = (above[j] ?? 0) + 1;
+      row[j + 1] = run;
+      if (run > best) best = run;
+    }
+    above = row;
+  }
+  return best;
+}
 
 /**
  * The part of a claim that carries all of its figures, when the claim falls into parts at a
@@ -222,8 +252,10 @@ function figurePart(claim: string): string | null {
  * - the claim word for word; or
  * - word for word, the part of the claim that carries its figures (read as `close`: the
  *   page says the same thing, in a sentence of its own); or
- * - nearly the same words, with every figure, every year and every name of the claim in
- *   the page's sentence. "80%" for "90%", or China for Norway, is another claim.
+ * - nearly the same words, most of them in one unbroken run as the claim has them, with
+ *   every figure, every year and every name of the claim in the page's sentence. "80%" for
+ *   "90%", or China for Norway, is another claim; and a sentence that merely has the claim's
+ *   words scattered through it does not make the claim at all.
  */
 export function findSure(pageText: string, rawClaim: string): Found {
   const claim = withoutFootnotes(rawClaim);
@@ -239,8 +271,12 @@ export function findSure(pageText: string, rawClaim: string): Found {
   const none: Found = { reading: "not_found", sentence: null, score: found.score };
   if (found.reading !== "close" || found.sentence === null || found.score < SURE_AT) return none;
   const sentence = found.sentence;
-  if (!holdsFigures(numbers(claim).map((n) => n.value), sentence)) return none;
+  // A figure that is only one end of a range on the page is not the claim's figure.
+  if (!holdsFigures(numbers(withoutRanges(claim)).map((n) => n.value), withoutRanges(sentence))) return none;
   if (!(claim.match(YEAR) ?? []).every((year) => sentence.includes(year))) return none;
   const theirs = stems(sentence);
-  return capitalised(claim).every((word) => theirs.has(stem(word))) ? found : none;
+  if (!capitalised(claim).every((word) => theirs.has(stem(word)))) return none;
+  const mine = words(claim);
+  const run = sharedRun(mine, words(sentence));
+  return run >= RUN_WORDS && run >= mine.length * RUN_SHARE ? found : none;
 }

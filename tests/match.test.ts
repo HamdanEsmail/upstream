@@ -168,6 +168,38 @@ describe("findSure", () => {
     expect(findSure(page("Sales fell by 90 percent."), "Fell by 90 percent, the worst result the company has had since it was founded.").reading).toBe("not_found");
   });
 
+  // Both of these came up in a real search for the sentence on 14 November 2026.
+  it("refuses a sentence that only has the claim's words and figure scattered through it", () => {
+    const claim = "People spend nearly 90 percent of their time indoors.";
+    const line = "Just as we pointed out earlier in the context of how much time modern people spend indoors, once again the building industry discussion has missed the key 90 percent—the impact of the big expense, the people.";
+    expect(findClaim(page(line), claim).reading).toBe("close");
+    expect(findSure(page(line), claim).reading).toBe("not_found");
+  });
+
+  it("keeps a sentence that says it in one run of the claim's own words, with one word changed", () => {
+    const claim = "People spend nearly 90 percent of their time indoors.";
+    const line = "Other research indicates that people spend approximately 90 percent of their time indoors.";
+    expect(findSure(page(line), claim)).toMatchObject({ reading: "close", sentence: line });
+  });
+
+  it("keeps a sentence that holds half of the claim's words in one run, the figure among them", () => {
+    const claim = "90% of the world's data has been created in the last two years.";
+    const line = "Every day, we create 2.5 quintillion bytes of data, so much that 90% of the data in the world today has been created in the last two years alone.";
+    expect(findSure(page(line), claim)).toMatchObject({ reading: "close", sentence: line });
+  });
+
+  it("refuses a sentence that says it in another order", () => {
+    const claim = "People spend nearly 90 percent of their time indoors.";
+    const line = "Indoors is where people now spend most of their time: nearly 90 percent.";
+    expect(findSure(page(line), claim).reading).toBe("not_found");
+  });
+
+  it("refuses a range that only ends at the claim's figure", () => {
+    const claim = "People spend nearly 90 percent of their time indoors.";
+    expect(findSure(page("People spend 80-90% of their time indoors (homes, schools, workplaces, other public spaces and on transport)."), claim).reading).toBe("not_found");
+    expect(findSure(page("People spend 80 to 90 percent of their time indoors, the briefing says."), claim).reading).toBe("not_found");
+  });
+
   it("keeps a quotation in nearly the same words: it has no figures to check", () => {
     const claim = "Insanity is doing the same thing, over and over again, but expecting different results.";
     expect(findSure(page("The definition of insanity is doing the same thing over and over again and expecting a different result."), claim).reading).toBe("close");

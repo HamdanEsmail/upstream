@@ -3,13 +3,13 @@
 // grouped into legs, because the free plan also allows one Workflow run only 50 requests to
 // other hosts: each leg is carried by a run of its own and hands the rest on to the next.
 // The Workflow runs the legs; tests run them with a stand-in.
-import { BOOK_AFTER_MS, CHECKS_PER_LEG, FOLLOW_DEPTH, FOLLOW_PAGES_PER_TRY, POLLS_PER_LEG, POLL_MS, POLL_TURNS, SEARCH_KEEP, SEARCH_PAGES_PER_TRY } from "../core/limits";
+import { BOOK_AFTER_MS, CHECKS_PER_LEG, FOLLOW_DEPTH, FOLLOW_ON_DEPTH, FOLLOW_PAGES_PER_TRY, POLLS_PER_LEG, POLL_MS, POLL_TURNS, SEARCH_KEEP, SEARCH_PAGES_PER_TRY } from "../core/limits";
 import type { Env } from "../env";
 import { checkProposed, loadProposed, skipProposed } from "./check";
 import { bookDeep, giveUpDeep, pollDeep, startDeep } from "./deep";
 import { finishTrace } from "./finish";
 import { followOnce, readStart } from "./follow";
-import { askSearch, readListed } from "./search";
+import { askSearch, linksFromSearch, readListed } from "./search";
 import { updateTrace } from "./store";
 
 /**
@@ -35,6 +35,30 @@ export type LegStep = TraceStep & { handOver(next: Leg): Promise<void> };
 const LINKS_PER_HOP = FOLLOW_PAGES_PER_TRY * 2;
 
 /**
+ * Follows links from `candidates`, a page at a time, at most `depths` pages deep. `label`
+ * begins the name of every step, so that two rounds of following in one leg never share one.
+ */
+async function followLinks(env: Env, traceId: string, step: TraceStep, stamp: () => string, candidates: string[], depths: number, label: string): Promise<void> {
+  for (let depth = 1; depth <= depths && candidates.length > 0; depth++) {
+    let next: string[] | null = null;
+    for (let from = 0; from < Math.min(candidates.length, LINKS_PER_HOP) && next === null; from += FOLLOW_PAGES_PER_TRY) {
+      const batch = candidates.slice(from, from + FOLLOW_PAGES_PER_TRY);
+      // A try that fails outright (a page too heavy to process) ends the following, not the trace.
+      let hop: { found: boolean; candidates: string[] };
+      try {
+        hop = await step.do(`${label} ${depth}.${from / FOLLOW_PAGES_PER_TRY + 1}`, () => followOnce(env, traceId, batch, stamp()));
+      } catch {
+        hop = { found: false, candidates: [] };
+        from = LINKS_PER_HOP;
+      }
+      if (hop.found) next = hop.candidates;
+    }
+    if (next === null) break;
+    candidates = next;
+  }
+}
+
+/**
  * Runs one leg. A Workflow may run this again from the top after a sleep, with the results
  * of finished steps remembered: so where a leg begins comes from `leg`, and every turn it
  * takes comes from the result of a step.
@@ -56,28 +80,14 @@ export async function runLeg(env: Env, traceId: string, leg: Leg, step: LegStep,
   try {
     if (leg.part === "start") {
       // 1. The fast engine: the page, then its links, as deep as they go.
-      let { candidates } = await step.do("read the page", () => readStart(env, traceId, stamp()));
-      for (let depth = 1; depth <= FOLLOW_DEPTH && candidates.length > 0; depth++) {
-        let next: string[] | null = null;
-        for (let from = 0; from < Math.min(candidates.length, LINKS_PER_HOP) && next === null; from += FOLLOW_PAGES_PER_TRY) {
-          const batch = candidates.slice(from, from + FOLLOW_PAGES_PER_TRY);
-          // A try that fails outright (a page too heavy to process) ends the following, not the trace.
-          let hop: { found: boolean; candidates: string[] };
-          try {
-            hop = await step.do(`follow ${depth}.${from / FOLLOW_PAGES_PER_TRY + 1}`, () => followOnce(env, traceId, batch, stamp()));
-          } catch {
-            hop = { found: false, candidates: [] };
-            from = LINKS_PER_HOP;
-          }
-          if (hop.found) next = hop.candidates;
-        }
-        if (next === null) break;
-        candidates = next;
-      }
+      const { candidates } = await step.do("read the page", () => readStart(env, traceId, stamp()));
+      await followLinks(env, traceId, step, stamp, candidates, FOLLOW_DEPTH, "follow");
 
       // 2. The search: one free question to TinyFish Search for the sentence, then a read of
-      // the pages it lists. Nothing here may sink the trace: a search that cannot be asked,
-      // or a read that fails outright, leaves the trail as the links gave it.
+      // the pages it lists, then the links of the oldest page it found. Nothing here may sink
+      // the trace: a search that cannot be asked, or a read that fails outright, leaves the
+      // trail as the links gave it.
+      let kept = 0;
       let listed: string[] = [];
       try {
         listed = (await step.do("search for the sentence", () => askSearch(env, traceId, stamp()))).candidates;
@@ -88,11 +98,20 @@ export async function runLeg(env: Env, traceId: string, leg: Leg, step: LegStep,
         const batch = listed.slice(from, from + SEARCH_PAGES_PER_TRY);
         const last = from + SEARCH_PAGES_PER_TRY >= listed.length;
         try {
-          const read = await step.do(`read what the search listed ${from / SEARCH_PAGES_PER_TRY + 1}`, () => readListed(env, traceId, batch, stamp(), last));
-          if (read.kept >= SEARCH_KEEP) break;
+          kept = (await step.do(`read what the search listed ${from / SEARCH_PAGES_PER_TRY + 1}`, () => readListed(env, traceId, batch, stamp(), last))).kept;
+          if (kept >= SEARCH_KEEP) break;
         } catch {
           break;
         }
+      }
+      if (kept > 0) {
+        let onward: string[] = [];
+        try {
+          onward = (await step.do("take up the trail from the oldest page the search found", () => linksFromSearch(env, traceId))).candidates;
+        } catch {
+          onward = [];
+        }
+        await followLinks(env, traceId, step, stamp, onward, FOLLOW_ON_DEPTH, "follow on");
       }
 
       // 3. The deep engine: start it here; the waiting and the checking are other legs.
