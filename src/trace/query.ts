@@ -28,7 +28,7 @@ export function buildQuery(pageUrl: string, text: string, known: { url: string; 
     "If no original source can be found, say so plainly and name the page where the trail goes cold. Do not present the most popular copy as the origin.",
   ];
   if (known.length > 0) {
-    lines.push("", "Steps already found by following the page's links (check them, then go further back):");
+    lines.push("", "Steps already found by following the page's links and by a web search for the sentence (check them, then go further back):");
     for (const k of known) lines.push(`- ${k.url}${k.wording ? `: "${quotable(k.wording)}"` : ""}`);
   }
   lines.push(

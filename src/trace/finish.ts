@@ -30,14 +30,27 @@ export async function finishTrace(env: Env, traceId: string, now: Date): Promise
   const trace = await getTrace(env.DB, traceId);
   if (!trace) throw new Error("trace_missing");
   const trail = proposedOf(trace);
-  const steps = orderSteps(mergeSteps(await getSteps(env.DB, traceId), await getStaged(env.DB, traceId)));
+  const stored = await getSteps(env.DB, traceId);
+
+  // A page that the search for the sentence found, and that the deep search did not propose as
+  // well. No page names it and no report vouches for it. So it is shown, but it is never
+  // "named", it does not stand between a step and the source that step names, and when there
+  // is a report the verdict does not rest on it.
+  const proposedUrls = (trail?.steps ?? []).map((p) => p.url).filter((u): u is string => u !== null);
+  const loose = stored.flatMap((s) => (s.reachedBy === "search" && s.url !== null && !proposedUrls.some((u) => sameAddress(u, s.url as string)) ? [s.url] : []));
+  const onlySearched = (s: StoredStep): boolean => s.url !== null && loose.some((u) => sameAddress(u, s.url as string));
+
+  const steps = orderSteps(mergeSteps(stored, await getStaged(env.DB, traceId)));
 
   // A step is linked only when a newer page in the trail, or the highlighted paragraph, links to it.
+  // It is named when the nearest step above it, pages only the search found aside, names a source.
+  let above: StoredStep | undefined;
   for (const [i, s] of steps.entries()) {
     const url = s.url;
     const linked = url !== null && (trace.near.some((l) => sameAddress(l, url)) || steps.slice(0, i).some((newer) => newer.links.some((l) => sameAddress(l, url))));
-    const reached: ReachedBy = i === 0 ? "start" : linked ? "link" : steps[i - 1]?.namesSource ? "named" : "search";
+    const reached: ReachedBy = i === 0 ? "start" : linked ? "link" : !onlySearched(s) && above?.namesSource ? "named" : "search";
     s.reachedBy = reached;
+    if (!onlySearched(s)) above = s;
   }
 
   // Compare the earliest confirmed sentence with the highlighted one: this is what the verdict
@@ -57,7 +70,8 @@ export async function finishTrace(env: Env, traceId: string, now: Date): Promise
     }
   };
   const start = steps[0];
-  const solid = steps.map((s, i) => ({ s, i })).filter(({ s, i }) => i > 0 && confirmed(s));
+  // With a report, only the steps of its own trail and the linked ones are compared and judged by.
+  const solid = steps.map((s, i) => ({ s, i })).filter(({ s, i }) => i > 0 && confirmed(s) && (trail === null || !onlySearched(s)));
   // The earliest confirmed step that carries a date; an undated one cannot be called the oldest.
   const earliest = [...solid].reverse().find(({ s }) => s.date !== null) ?? solid[solid.length - 1];
   const headline = !quotation && start && start.wording !== null && earliest && earliest.s.wording !== null ? namedChanges(earliest.s.wording, start.wording) : [];
@@ -72,7 +86,7 @@ export async function finishTrace(env: Env, traceId: string, now: Date): Promise
   for (const detail of trail?.changes ?? []) changes.push({ fromPosition: null, toPosition: null, kind: "noted", detail, basis: "research" });
 
   // The report's word that an original exists counts only when that page was confirmed here.
-  const last = steps[steps.length - 1];
+  const last = trail === null ? steps[steps.length - 1] : [...steps].reverse().find((s) => !onlySearched(s));
   const originUrl = trail?.origin.url ?? null;
   const originStep = originUrl === null ? last : steps.find((s) => s.url !== null && sameAddress(s.url, originUrl));
   const { verdict, reached } = decide({

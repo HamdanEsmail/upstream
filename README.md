@@ -71,6 +71,7 @@ Every verdict says whether it rests on an original source or only on the earlies
 - A source that exists only in print has no page to open. Its step opens the page that quotes it, at the quoted sentence, and the tally counts it apart from the steps found on their own pages.
 - It trusts nothing the research run says about links or dates. Both are worked out again from the pages.
 - A page that only a search led to is held to more than a linked page, because no link vouches for it. "80%" where the claim says "90%", a range such as "80-90%", another place or another year, or the claim's words scattered through a sentence that does not make the claim: none of these is kept. A page that says the same thing in quite other words is therefore missed by the search, and left to the deep search.
+- When a deep search ran, its report decides the verdict. A page that only the search found is shown on the trail, marked as found by search, but the verdict does not rest on it and no change is named from it: no link and no report vouches for it.
 - A page the search found is kept only when it can be dated: by the page's own date, or by the Internet Archive's first saved copy. One that cannot be dated cannot be shown to be older, so it is left out.
 
 ## Where TinyFish does the work
@@ -97,7 +98,7 @@ Refusals are plain: `400 text_too_short`, `400 text_too_long`, `400 bad_address`
 - Following links and searching for the sentence are free. A deep search is a TinyResearch run, and TinyFish charges $2 for each one. Upstream pays for them from a fixed reserve, and the first page says how many it can still pay for. When the reserve is used, a trace still follows links and searches for the sentence, says that no deep search ran, and the first page says so before you start one.
 - Until 11 November 2026 TinyFish gave two research runs a day free on an account, and Upstream was built to use those first, on my two accounts. It did not take a free run on trust: it read the account's wallet before the run and again ten minutes after the trail was done, and it started no run when TinyFish would not say what the wallet held. On 12 November the first run of the day was charged. Upstream saw the $2 leave the wallet, booked it, showed it in the footer of every page and counted it against the reserve. Since then a deep search is started only when the reserve can pay for it.
 - The same sentence on the same page is not traced twice. It opens the trail that exists. The one exception: a trail made when no deep search was to be had is traced afresh when the sentence is traced again on a later day.
-- One visitor can start 6 new traces an hour; all visitors together 40 a day. Upstream reads at most 500 pages a day.
+- One visitor can start 6 new traces an hour; all visitors together 40 a day. Upstream reads at most 500 pages a day. With the search, a trace reads about 20 pages before any deep search, so the reading limit is reached after some 20 traces in a day; a trace started after that is refused with `daily_limit`.
 - Only trails I choose are listed on the first page.
 
 ## Run it yourself
@@ -112,7 +113,7 @@ npm run dev
 ```
 
 ```bash
-npm run check       # type check, 285 tests, and a dry-run deploy
+npm run check       # type check, 288 tests, and a dry-run deploy
 npm run extension   # copy the stylesheet into the extension and write the zip
 ```
 

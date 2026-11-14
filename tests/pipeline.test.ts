@@ -1091,7 +1091,85 @@ describe("searching the web for the sentence, when the links run out", () => {
     const start = fetchMock.calls.find((c) => c.url.endsWith("/run-research-async"));
     expect((start?.body as { query: string }).query).toContain(`${LEAFLET}: "${HIGHLIGHT}, the leaflet said."`);
     // The deep search's own verdict stands, and the page Search found is part of the finished trail.
-    expect(await getTrace(env.DB, "t1")).toMatchObject({ status: "done", verdict: "changed_on_the_way" });
-    expect((await trailOf()).map((s) => s[0])).toContain(LEAFLET);
+    expect(await getTrace(env.DB, "t1")).toMatchObject({ status: "done", verdict: "changed_on_the_way", reached: "original" });
+    expect((await trailOf()).map((s) => [s[0], s[2]])).toEqual([[START, "start"], [AGENCY, "link"], [STUDY, "link"], [LEAFLET, "search"]]);
+    // The leaflet is older than the study, but the verdict still rests on the study the report named: 87 percent became 90.
+    expect(await getChanges(env.DB, "t1")).toContainEqual({ fromPosition: 2, toPosition: 0, kind: "rounded", detail: "87 percent became 90 percent", basis: "code" });
+  });
+
+  describe("beside a deep search", () => {
+    it("is never marked as named by the step above it, and does not stand between a step and the source it names", async () => {
+      // The agency names the 2001 survey without linking to it. Search finds a leaflet dated between the two.
+      world({ search: [{ url: LEAFLET }], pages: { ...PAGES, [AGENCY]: { ...PAGES[AGENCY]!, links: [] }, [LEAFLET]: said("2010-03-01") } });
+      await newTrace();
+      await runTrace(env, "t1", fakeStep(), clock);
+      expect((await trailOf()).map((s) => [s[0], s[2], s[3]])).toEqual([
+        [START, "start", "2025-12-15"],
+        [AGENCY, "link", "2017-11-02"],
+        [LEAFLET, "search", "2010-03-01"],
+        [STUDY, "named", "2001-07-26"],
+      ]);
+    });
+
+    it("does not change the verdict: a report that found the original and says it matches is not overruled by an older page from Search", async () => {
+      const SURVEY = "https://survey.example/2001-results";
+      const HEDGED = "https://older.example/1995-notes";
+      const line = "People spend nearly 90 percent of their time indoors, the survey found.";
+      const matching = trail({
+        steps: [
+          { url: START, publisher: "Example News", date: "2025-12-15", wording: "People spend nearly 90 percent of their time indoors, yet indoor air is studied less.", names_source: "none", linked: false },
+          { url: SURVEY, publisher: "The Survey", date: "2001-07-26", wording: line, names_source: "none", linked: true },
+        ],
+        origin: { found: true, url: SURVEY, kind: "study", note: "The survey itself." },
+        changes: [],
+        verdict: "matches_original",
+        summary: "The survey says the same. Nothing changed on the way.",
+      });
+      world({
+        pages: {
+          [START]: { ...PAGES[START]!, links: [SURVEY] },
+          [SURVEY]: { title: "Results", published_date: "2001-07-26", text: `Results follow. ${line} Tables below.`, links: [] },
+          // Older, and hedged: "may" is a careful word the highlight does not have.
+          [HEDGED]: { title: "Notes", published_date: "1995-04-04", text: "Some studies suggest people may spend nearly 90 percent of their time indoors. Other notes follow.", links: [] },
+        },
+        search: [{ url: HEDGED }],
+        runStates: [{ status: "COMPLETED", evidence: [{ url: SURVEY }], deep_result: { result: report(matching) } }],
+      });
+      await newTrace();
+      await runTrace(env, "t1", fakeStep(), clock);
+      expect((await trailOf()).map((s) => [s[0], s[2]])).toEqual([[START, "start"], [SURVEY, "link"], [HEDGED, "search"]]);
+      expect(await getTrace(env.DB, "t1")).toMatchObject({ status: "done", verdict: "matches_original", reached: "original" });
+      // With a report, a page only Search found is shown and not compared: no note is hung on it or drawn from it.
+      expect(await getChanges(env.DB, "t1")).toEqual([]);
+    });
+
+    it("still counts as the origin when the report gives no address for one and its own last step is confirmed", async () => {
+      const SURVEY = "https://survey.example/2001-results";
+      const line = "People spend nearly 90 percent of their time indoors, the survey found.";
+      const noAddress = trail({
+        steps: [
+          { url: START, publisher: "Example News", date: "2025-12-15", wording: "People spend nearly 90 percent of their time indoors, yet indoor air is studied less.", names_source: "none", linked: false },
+          { url: SURVEY, publisher: "The Survey", date: "2001-07-26", wording: "A sentence the page does not hold.", names_source: "none", linked: true },
+        ],
+        origin: { found: true, url: null, kind: "study", note: "" },
+        changes: [],
+        verdict: "matches_original",
+        summary: "The survey says the same. Nothing changed on the way.",
+      });
+      world({
+        pages: {
+          [START]: { ...PAGES[START]!, links: [] },
+          [SURVEY]: { title: "Results", published_date: "2001-07-26", text: "Results follow. Nothing about time indoors here. Tables below.", links: [] },
+          [LEAFLET]: said("1999-03-01"),
+        },
+        search: [{ url: LEAFLET }],
+        runStates: [{ status: "COMPLETED", evidence: [], deep_result: { result: report(noAddress) } }],
+      });
+      await newTrace();
+      await runTrace(env, "t1", fakeStep(), clock);
+      // The report's own last step was not confirmed, so the report's word that an original exists does not count:
+      // the older leaflet, which Search found and which is confirmed, must not stand in for it.
+      expect(await getTrace(env.DB, "t1")).toMatchObject({ status: "done", reached: "earliest_copy" });
+    });
   });
 });
