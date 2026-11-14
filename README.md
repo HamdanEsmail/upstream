@@ -6,7 +6,7 @@
 
 Live: **https://upstream.hamdanesmail12-7a9.workers.dev**
 
-Built for the TinyFish Student Bounty Drop 002 ("Source Hunter"). TinyFish does all the reading: Fetch reads every page, and a TinyResearch run searches wider when the links run out.
+Built for the TinyFish Student Bounty Drop 002 ("Source Hunter"). TinyFish does all the reading and searching: Fetch reads every page, Search finds older pages that carry the sentence when the links run out, and a TinyResearch run searches wider still.
 
 ## Five real trails
 
@@ -36,9 +36,10 @@ The extension holds no key and needs no account. It reads the page only at the m
 
 1. **Read the page.** TinyFish Fetch reads the page; Upstream finds the highlighted sentence on it.
 2. **Follow the links.** It reads the pages that page links to, up to ten in one Fetch call, and looks for the same claim. A page that states it becomes the next step. This repeats up to five steps deep and takes seconds.
-3. **Search wider.** A TinyResearch run looks for older sources that no link leads to. While it runs, the trail page says how many pages it has read.
-4. **Read every step again.** The research run only proposes. Upstream opens each page it names and looks for the sentence. If the live page no longer holds it, Upstream tries the copy the Internet Archive saved nearest that date. A source that exists only in print is credited to the page that quotes it word for word.
-5. **Compare and decide.** The earliest confirmed sentence is compared with the highlighted one, and the changes are named by code: a figure rounded, a figure changed, a careful word dropped, a year dropped.
+3. **Search for the sentence.** When the links run out, Upstream asks TinyFish Search for the sentence itself, and only for pages published before the earliest step it has. It reads the pages the search lists, five to a Fetch call. A page is kept only when it holds the sentence word for word, or nearly so with every figure, year and name the same, and when it is older than everything the links found. Three at most are kept, the oldest first. Then the links of the oldest one are followed, two steps at most. This is free and takes seconds.
+4. **Search wider.** A TinyResearch run looks for older sources still. It is given the steps found so far, to check them and go further back. While it runs, the trail page says how many pages it has read.
+5. **Read every step again.** The research run only proposes. Upstream opens each page it names and looks for the sentence. If the live page no longer holds it, Upstream tries the copy the Internet Archive saved nearest that date. A source that exists only in print is credited to the page that quotes it word for word.
+6. **Compare and decide.** The earliest confirmed sentence is compared with the highlighted one, and the changes are named by code: a figure rounded, a figure changed, a careful word dropped, a year dropped.
 
 What a trail shows, and what each mark means:
 
@@ -69,12 +70,15 @@ Every verdict says whether it rests on an original source or only on the earlies
 - Inside a PDF the browser cannot jump to a sentence, so the link opens the file. PDF text often comes back with its lines broken in the middle of a sentence or a word. Upstream puts such a sentence back together where it can; where it cannot, the sentence is shown as found "in slightly different words" or not found.
 - A source that exists only in print has no page to open. Its step opens the page that quotes it, at the quoted sentence, and the tally counts it apart from the steps found on their own pages.
 - It trusts nothing the research run says about links or dates. Both are worked out again from the pages.
+- A page that only a search led to is held to more than a linked page, because no link vouches for it. "80%" where the claim says "90%", a range such as "80-90%", another place or another year, or the claim's words scattered through a sentence that does not make the claim: none of these is kept. A page that says the same thing in quite other words is therefore missed by the search, and left to the deep search.
+- A page the search found is kept only when it can be dated: by the page's own date, or by the Internet Archive's first saved copy. One that cannot be dated cannot be shown to be older, so it is left out.
 
 ## Where TinyFish does the work
 
 | TinyFish API | What Upstream uses it for |
 |---|---|
 | Fetch | Every page read: the highlighted page, the pages it links to (ten in one call), every step the research run proposes, and Internet Archive copies. It returns the text, the page's links, its date and its author. |
+| Search | One question a trace, when the links run out: the highlighted sentence, limited to pages published before the earliest step so far. The pages it lists are read with Fetch and checked; the index's own date only decides which are read first. A trail's page says "TinyFish Fetch and Search" only when Search was asked for that trail. |
 | TinyResearch | The wider search. The run is started, then read every 15 seconds; the pages it has read so far are shown while it works. Its report must end with the trail in a fixed shape, which Upstream reads and then checks page by page. |
 
 ## API
@@ -90,7 +94,7 @@ Refusals are plain: `400 text_too_short`, `400 text_too_long`, `400 bad_address`
 
 ## Limits and cost
 
-- Following links is free. A deep search is a TinyResearch run, and TinyFish charges $2 for each one. Upstream pays for them from a fixed reserve, and the first page says how many it can still pay for. When the reserve is used, a trace still follows links and says so, and the first page says so before you start one.
+- Following links and searching for the sentence are free. A deep search is a TinyResearch run, and TinyFish charges $2 for each one. Upstream pays for them from a fixed reserve, and the first page says how many it can still pay for. When the reserve is used, a trace still follows links and searches for the sentence, says that no deep search ran, and the first page says so before you start one.
 - Until 11 November 2026 TinyFish gave two research runs a day free on an account, and Upstream was built to use those first, on my two accounts. It did not take a free run on trust: it read the account's wallet before the run and again ten minutes after the trail was done, and it started no run when TinyFish would not say what the wallet held. On 12 November the first run of the day was charged. Upstream saw the $2 leave the wallet, booked it, showed it in the footer of every page and counted it against the reserve. Since then a deep search is started only when the reserve can pay for it.
 - The same sentence on the same page is not traced twice. It opens the trail that exists. The one exception: a trail made when no deep search was to be had is traced afresh when the sentence is traced again on a later day.
 - One visitor can start 6 new traces an hour; all visitors together 40 a day. Upstream reads at most 500 pages a day.
@@ -108,7 +112,7 @@ npm run dev
 ```
 
 ```bash
-npm run check       # type check, 244 tests, and a dry-run deploy
+npm run check       # type check, 285 tests, and a dry-run deploy
 npm run extension   # copy the stylesheet into the extension and write the zip
 ```
 
@@ -119,7 +123,7 @@ The tests never touch the network: TinyFish and the Internet Archive are replace
 | Path | What is there |
 |---|---|
 | `src/core/` | The parts with no network and no database: finding a claim on a page, comparing two sentences, naming changes, ordering a trail, the verdict, the citation. |
-| `src/tinyfish/`, `src/archive.ts` | The TinyFish Fetch and Research clients, and the Internet Archive. |
+| `src/tinyfish/`, `src/archive.ts` | The TinyFish Fetch, Search and Research clients, and the Internet Archive. |
 | `src/trace/` | A trace from start to finish, as the small steps a Workflow runs. The steps are grouped into legs, each carried by a Workflow run of its own, because the free plan allows one run 50 requests to other hosts. |
 | `src/site/`, `src/app.tsx` | The pages and every route. |
 | `extension/` | The Chrome extension. |

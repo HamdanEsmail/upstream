@@ -165,3 +165,30 @@ The free-run code is still there. It is what found the change, and on a database
 One visitor can start six traces an hour, so one visitor can use the whole reserve. I have left that as it is and say so here.
 
 It is live. The reserve is $8: four deep searches in all, one of them the charged run, so three are left, and the first page says so. The five trails and the numbers in the footer read the same before and after the deploy.
+
+## 14 November: a search for the sentence, when the links run out
+
+Upstream had two ways of looking: following links, which is free and takes seconds, and the deep search, which costs $2 and of which three are left. Between them was a gap. Most pages repeat a claim without linking to anything, so the links often stop at the first page, and once the reserve is used a trace would stop there too.
+
+TinyFish Search is free. I tried it by hand first, because a step that finds nothing would only be padding. Asked for "people spend nearly 90 percent of their time indoors", it listed an Environmental Protection Agency report from 1987 with those words in it. Asked for the "90% of the world's data" line with a date limit, it listed pages going back to 2012, where my saved trail's links stop at a page from 2019. So I built it.
+
+**What a trace does now.** When the links run out it asks Search once for the highlighted sentence, limited to pages published before the earliest step so far. It reads the pages listed, the ones the index dates oldest first, five to a Fetch call. A page that holds the sentence and is older than the trail is kept, three at most. Then the links of the oldest one are followed, two steps at most. After that the deep search starts as before, when there is one to be had, and is told what was found.
+
+**What I got wrong first.** Quoting the whole sentence in the question returned nonsense whenever the highlight began with filler such as "This means". The plain sentence with a date limit works.
+
+The first real run kept a page from a business school whose sentence had the right words in it, "how much time modern people spend indoors" and, later, "the key 90 percent", and did not make the claim at all. A page a link leads to has that link to vouch for it. A page a search leads to has nothing. So such a page is now held to more:
+
+- the sentence word for word; or
+- word for word, the part of the sentence that carries its figures, when nothing in the rest narrows it (no name, no year); or
+- nearly the same words, with half of them or more in one unbroken run as the highlight has them, and every figure, year and name of the highlight in the page's sentence.
+
+"80%" for "90%" is refused. So is a range, "80-90%", which the second real run let through. So is the same sentence about another country.
+
+A page with no date of its own is dated by the Internet Archive's first saved copy. One that cannot be dated at all is left out, because it cannot be shown to be older.
+
+**What it found, on my own machine, with the deep search locked off.** For "People spend nearly 90 percent of their time indoors." on a 2025 magazine page: three older pages in 22 seconds, the oldest an Environmental Protection Agency guide dated 2014. For "90% of the world's data has been created in the last two years." on a 2016 page: a university page from 2015, a United Nations report from November 2014 and its draft from October 2014, which the report links to, in 43 seconds. For the 21 days and 90 days habit line: nine pages listed, none kept, and the trail says so.
+
+**What it does not change.** The verdict. Without a deep search a trail is still "Not settled", resting on the earliest copy found: a search finds older copies, it does not find out which one is the original. The five saved trails are untouched, and each still names only the tools it used: the ledger gets one line at $0 when Search is asked for a trace, and the trail page reads that line. A search that cannot be asked, or a read that fails, leaves the trail as the links gave it.
+
+**What I did not test.** A trace with both the search and a deep search has run only in the tests. On the live service it would cost $2 and one of the three that are left.
+

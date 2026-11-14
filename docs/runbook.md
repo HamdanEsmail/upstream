@@ -61,14 +61,14 @@ A visitor's own trace is never listed on the first page. It is reachable by its 
 TinyFish charges $2 for a research run. On the live service every deep search is paid from the reserve:
 
 1. A paid run, while the reserve has room: `PAID_DEEP_BUDGET_USD` divided by 2, less the runs counted under `research:paid` in the `limits` table. The first page says how many are left.
-2. Otherwise none: the trace follows links only and says the money set aside is used up. The first page says so before anyone starts a trace.
+2. Otherwise none: the trace follows links and searches for the sentence, both free, and says the money set aside is used up. The first page says so before anyone starts a trace.
 
 How it came to this. Until 11 November 2026 TinyFish gave two research runs a day free on an account, and Upstream used those first. On a database where no run has been charged, the code still starts that way:
 
 1. A free run on the main account, while fewer than two were made there today.
 2. A free run on the second account, on the same rule.
 3. A paid run from the reserve, while the reserve has room. Only when both accounts answered that their free runs are used.
-4. Otherwise none: the trace follows links only and says the deep search is back at midnight UTC.
+4. Otherwise none: the trace follows links and searches for the sentence, and says the deep search is back at midnight UTC.
 
 "Today" is the UTC day. Runs made outside Upstream on the same accounts count: Upstream asks TinyFish how many runs each account made today before it takes a free one.
 
