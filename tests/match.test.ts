@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findClaim } from "../src/core/match";
+import { findClaim, findSure } from "../src/core/match";
 
 const PAGE = [
   "## Indoor air",
@@ -111,5 +111,65 @@ describe("findClaim on pages whose lines break in the middle of a sentence", () 
   it("finds a claim that the reader copied with a footnote mark in it", () => {
     const page = "Goldfish have a memory span of at least three months.[36][37] By using positive reinforcement, they can be trained.";
     expect(findClaim(page, "Goldfish have a memory span of at least three months.[36][37]")).toMatchObject({ reading: "exact", sentence: "Goldfish have a memory span of at least three months." });
+  });
+});
+
+// A page that only a search led to has no link to vouch for it, so it is held to more.
+describe("findSure", () => {
+  const DATA = "This means 90% of the world's data has been created in the last two years.";
+  const INDOORS = "People spend nearly 90 percent of their time indoors, yet indoor environments are often less studied than outdoor air.";
+  const page = (line: string) => `A line before it. ${line} A line after it.`;
+
+  it("keeps a page that holds the claim word for word", () => {
+    expect(findSure(page(INDOORS), INDOORS)).toMatchObject({ reading: "exact", sentence: INDOORS });
+  });
+
+  it("keeps nearly the same words when every figure of the claim is in the page's sentence", () => {
+    const line = "90% of the world's data has been created in the last two years.";
+    expect(findSure(page(line), DATA)).toMatchObject({ reading: "close", sentence: line });
+  });
+
+  it("refuses the same words with another figure", () => {
+    expect(findSure(page("Approximately 80% of the world's data has been created in the last two years."), DATA).reading).toBe("not_found");
+  });
+
+  it("refuses the same words with one of the claim's figures missing", () => {
+    expect(findSure(page("You may be familiar with the statistic that 90% of the world's data was created in the last few years."), DATA).reading).toBe("not_found");
+  });
+
+  it("refuses a looser restatement that a linked page would be allowed", () => {
+    const line = "A full 90% of all the data in the world has been generated over the last two years.";
+    expect(findClaim(page(line), DATA).reading).toBe("close");
+    expect(findSure(page(line), DATA).reading).toBe("not_found");
+  });
+
+  it("refuses a sentence that ends differently, though it shares the figures", () => {
+    const claim = "In short, it takes 21 days to build a habit and 90 days to make it permanent.";
+    expect(findSure(page("My dad always told me that it takes 21 days to make a habit and 90 days to break one."), claim).reading).toBe("not_found");
+  });
+
+  it("keeps a page that holds, word for word, the part of the claim that carries its figures", () => {
+    const line = "The agency estimates that people spend nearly 90 percent of their time indoors.";
+    expect(findClaim(page(line), INDOORS).reading).toBe("not_found");
+    expect(findSure(page(line), INDOORS)).toMatchObject({ reading: "close", sentence: line });
+  });
+
+  it("does not do that when the rest of the claim names a place or a person", () => {
+    const claim = "In Norway, nearly 90 percent of new cars sold are electric.";
+    expect(findSure(page("In China, nearly 90 percent of new cars sold are electric."), claim).reading).toBe("not_found");
+  });
+
+  it("does not do that when the rest of the claim gives a year", () => {
+    const claim = "At the end of 2024, 123.2 million people worldwide were forcibly displaced.";
+    expect(findSure(page("At the end of 2023, 123.2 million people worldwide were forcibly displaced."), claim).reading).toBe("not_found");
+  });
+
+  it("does not do that for a part too short to be a statement", () => {
+    expect(findSure(page("Sales fell by 90 percent."), "Fell by 90 percent, the worst result the company has had since it was founded.").reading).toBe("not_found");
+  });
+
+  it("keeps a quotation in nearly the same words: it has no figures to check", () => {
+    const claim = "Insanity is doing the same thing, over and over again, but expecting different results.";
+    expect(findSure(page("The definition of insanity is doing the same thing over and over again and expecting a different result."), claim).reading).toBe("close");
   });
 });

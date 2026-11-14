@@ -8,7 +8,7 @@ import { siteName } from "../core/links";
 import type { Reached, Verdict } from "../core/verdict";
 import type { Env } from "../env";
 import { changeWords, verdictWords } from "../site/words";
-import { getChanges, getEvents, getSteps, getTrace, type StoredChange, type StoredStep, type TraceStatus } from "./store";
+import { getChanges, getEvents, getSteps, getTrace, wasSearched, type StoredChange, type StoredStep, type TraceStatus } from "./store";
 
 export type DocumentStep = {
   position: number;
@@ -49,6 +49,8 @@ export type TrailDocument = {
   summary: string | null;
   error: string | null;
   progress: { pagesRead: number; latestHosts: string[]; startedAt: string; deepStartedAt: string | null };
+  /** True when TinyFish Search was asked for this trail. A trail made before Upstream searched says false. */
+  searched: boolean;
   /** Seconds from start to finish; null while running, and on a trail built from a deep search that had already finished. */
   seconds: number | null;
   steps: DocumentStep[];
@@ -159,7 +161,7 @@ function marks(wording: string | null, notes: StoredChange[]): DiffRun[] | null 
 export async function buildDocument(env: Env, id: string): Promise<TrailDocument | null> {
   const trace = await getTrace(env.DB, id);
   if (!trace) return null;
-  const [steps, changes, events] = await Promise.all([getSteps(env.DB, id), getChanges(env.DB, id), getEvents(env.DB, id, 8)]);
+  const [steps, changes, events, searched] = await Promise.all([getSteps(env.DB, id), getChanges(env.DB, id), getEvents(env.DB, id, 8), wasSearched(env.DB, id)]);
   const url = `${env.PUBLIC_BASE_URL.replace(/\/$/, "")}/t/${trace.id}`;
   const running = trace.status !== "done" && trace.status !== "failed";
   // A trail built from a deep search that had already finished (adopt.ts) carries the run from
@@ -196,6 +198,7 @@ export async function buildDocument(env: Env, id: string): Promise<TrailDocument
     summary: trace.summary,
     error: trace.error,
     progress: { pagesRead: trace.pagesRead, latestHosts: trace.latestHosts, startedAt: trace.createdAt, deepStartedAt: trace.researchStartedAt },
+    searched,
     seconds: trace.finishedAt === null || rebuilt ? null : Math.round((Date.parse(trace.finishedAt) - Date.parse(trace.createdAt)) / 1000),
     steps: steps.map((s, i) => ({
       position: i,

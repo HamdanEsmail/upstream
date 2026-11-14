@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../src/app";
-import { getTrace, insertTrace, saveSteps, updateTrace, type StoredStep } from "../src/trace/store";
+import { getTrace, insertTrace, markSearched, saveSteps, updateTrace, type StoredStep } from "../src/trace/store";
 
 const PAGE = "https://news.example/science/indoor-air";
 const TEXT = "People spend nearly 90 percent of their time indoors.";
@@ -257,6 +257,28 @@ describe("what a trail page claims", () => {
     expect(html).toContain("21 pages read by the deep search");
   });
 
+  it("names Search only on a trail it was asked for: a trail made before Upstream searched does not claim it", async () => {
+    await finished("t1");
+    const before = await (await call("/t/t1")).text();
+    expect(before).toContain("TinyFish Fetch ·");
+    expect(before).toContain("following links only");
+    expect(((await (await call("/api/traces/t1")).json()) as { searched: boolean }).searched).toBe(false);
+
+    await markSearched(env.DB, "t1", NOW);
+    const after = await (await call("/t/t1")).text();
+    expect(after).toContain("TinyFish Fetch and Search ·");
+    expect(after).toContain("following links and searching the web");
+    expect(after).not.toContain("following links only");
+    expect(((await (await call("/api/traces/t1")).json()) as { searched: boolean }).searched).toBe(true);
+  });
+
+  it("names all three tools on a trail that had a search and a deep search", async () => {
+    await finished("t7");
+    await markSearched(env.DB, "t7", NOW);
+    await updateTrace(env.DB, "t7", { researchRunId: "run-7", researchAccount: "main", researchStartedAt: "2026-11-11T06:30:04.000Z", pagesRead: 21, finishedAt: "2026-11-11T06:35:17.000Z" });
+    expect(await (await call("/t/t7")).text()).toContain("TinyFish Fetch, Search and Research ·");
+  });
+
   it("gives no time on a trail built from a deep search that had already finished", async () => {
     const res = await call("/api/admin/adopt", json({ page_url: PAGE, text: TEXT, research_run_id: "run-9", account: "second" }, { authorization: "Bearer test-admin" }));
     const { id } = (await res.json()) as { id: string };
@@ -293,7 +315,7 @@ describe("what the site says about itself", () => {
     const today = new Date().toISOString().slice(0, 10);
     await env.DB.prepare("INSERT INTO limits (day, name, count) VALUES (?, 'research:out', 1)").bind(today).run();
     const html = await (await call("/")).text();
-    expect(html).toContain("deep searches are used up. A trace started now follows links only");
+    expect(html).toContain("deep searches are used up. A trace started now follows links and searches the web for the sentence");
     expect(html).toContain("back at midnight UTC");
     expect(html).not.toContain("usually takes 4 to 6 minutes, and you can watch it grow");
   });
@@ -302,9 +324,9 @@ describe("what the site says about itself", () => {
     await env.DB.prepare("INSERT INTO limits (day, name, count) VALUES ('all', 'research:charged', 1)").run();
     await env.DB.prepare("INSERT INTO limits (day, name, count) VALUES ('all', 'research:paid', 1)").run();
     const html = await (await call("/")).text();
-    expect(html).toContain("The money set aside for deep searches is used up, so a trace started now follows links only");
+    expect(html).toContain("The money set aside for deep searches is used up, so a trace started now follows links and searches the web for the sentence");
     expect(html).toContain("The trails below show what a full search finds.");
-    expect(html).toContain("For now the trace stops there, with links only.");
+    expect(html).toContain("For now the trace stops after the links and a web search.");
     expect(html).not.toContain("usually takes 4 to 6 minutes, and you can watch it grow");
     expect(html).not.toContain("back at midnight UTC");
     expect(html).not.toContain("switched off");

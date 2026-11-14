@@ -307,6 +307,23 @@ export async function recordSpend(db: D1Database, kind: string, amountUsd: numbe
 }
 
 /**
+ * Notes in the ledger that TinyFish Search was asked for this trace, at no cost. One line a
+ * trace, however often the step is tried. The trail page reads it to name the tools a trail
+ * really used: a trail made before Upstream searched has no such line.
+ */
+export async function markSearched(db: D1Database, traceId: string, now: string): Promise<void> {
+  await db
+    .prepare("INSERT INTO spend (at, kind, amount_usd, ref) SELECT ?1, 'search', 0, ?2 WHERE NOT EXISTS (SELECT 1 FROM spend WHERE kind = 'search' AND ref = ?2)")
+    .bind(now, traceId)
+    .run();
+}
+
+/** True when TinyFish Search was asked for this trace. */
+export async function wasSearched(db: D1Database, traceId: string): Promise<boolean> {
+  return (await db.prepare("SELECT 1 AS yes FROM spend WHERE kind = 'search' AND ref = ? LIMIT 1").bind(traceId).first()) !== null;
+}
+
+/**
  * Books a deep search that was started as a free one, from the wallet read after it. True the
  * first time; false when the run was booked already, and then nothing is written. A charge
  * gets its own line in the spend ledger, beside the $0 line written when the run started.

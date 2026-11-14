@@ -3,17 +3,18 @@
 // grouped into legs, because the free plan also allows one Workflow run only 50 requests to
 // other hosts: each leg is carried by a run of its own and hands the rest on to the next.
 // The Workflow runs the legs; tests run them with a stand-in.
-import { BOOK_AFTER_MS, CHECKS_PER_LEG, FOLLOW_DEPTH, FOLLOW_PAGES_PER_TRY, POLLS_PER_LEG, POLL_MS, POLL_TURNS } from "../core/limits";
+import { BOOK_AFTER_MS, CHECKS_PER_LEG, FOLLOW_DEPTH, FOLLOW_PAGES_PER_TRY, POLLS_PER_LEG, POLL_MS, POLL_TURNS, SEARCH_KEEP, SEARCH_PAGES_PER_TRY } from "../core/limits";
 import type { Env } from "../env";
 import { checkProposed, loadProposed, skipProposed } from "./check";
 import { bookDeep, giveUpDeep, pollDeep, startDeep } from "./deep";
 import { finishTrace } from "./finish";
 import { followOnce, readStart } from "./follow";
+import { askSearch, readListed } from "./search";
 import { updateTrace } from "./store";
 
 /**
  * One part of a trace, small enough for one Workflow run.
- * - `start`: read the page, follow its links, start the deep search.
+ * - `start`: read the page, follow its links, search for the sentence, start the deep search.
  * - `wait`: read the deep search again and again, from turn `turn`.
  * - `check`: check the proposed steps from index `from`. `count` is how many there are;
  *   null when the report has still to be read, 0 when the search gave nothing.
@@ -74,7 +75,27 @@ export async function runLeg(env: Env, traceId: string, leg: Leg, step: LegStep,
         candidates = next;
       }
 
-      // 2. The deep engine: start it here; the waiting and the checking are other legs.
+      // 2. The search: one free question to TinyFish Search for the sentence, then a read of
+      // the pages it lists. Nothing here may sink the trace: a search that cannot be asked,
+      // or a read that fails outright, leaves the trail as the links gave it.
+      let listed: string[] = [];
+      try {
+        listed = (await step.do("search for the sentence", () => askSearch(env, traceId, stamp()))).candidates;
+      } catch {
+        listed = [];
+      }
+      for (let from = 0; from < listed.length; from += SEARCH_PAGES_PER_TRY) {
+        const batch = listed.slice(from, from + SEARCH_PAGES_PER_TRY);
+        const last = from + SEARCH_PAGES_PER_TRY >= listed.length;
+        try {
+          const read = await step.do(`read what the search listed ${from / SEARCH_PAGES_PER_TRY + 1}`, () => readListed(env, traceId, batch, stamp(), last));
+          if (read.kept >= SEARCH_KEEP) break;
+        } catch {
+          break;
+        }
+      }
+
+      // 3. The deep engine: start it here; the waiting and the checking are other legs.
       deep = (await step.do("start the deep search", () => startDeep(env, traceId, clock()))).started;
       if (deep) return await step.handOver({ part: "wait", turn: 0 });
     } else if (leg.part === "wait") {
@@ -102,7 +123,7 @@ export async function runLeg(env: Env, traceId: string, leg: Leg, step: LegStep,
       if (end < count) return await step.handOver({ part: "check", from: end, count });
     }
 
-    // 3. Join, order, compare, decide.
+    // 4. Join, order, compare, decide.
     await step.do("finish", () => finishTrace(env, traceId, clock()));
   } catch (err) {
     await updateTrace(env.DB, traceId, { status: "failed", error: err instanceof Error ? err.message.slice(0, 200) : "unknown", finishedAt: stamp() });

@@ -167,7 +167,7 @@ export function createApp(deps: { start?: Starter } = {}) {
   app.get("/how", (c) =>
     page(
       c,
-      { title: "How Upstream works", description: "Two engines and one rule: a source is shown only after its page has been read.", current: "how" },
+      { title: "How Upstream works", description: "Three ways of looking and one rule: a source is shown only after its page has been read.", current: "how" },
       <HowPage reserveUsd={Number(c.env.PAID_DEEP_BUDGET_USD ?? "0") || 0} />,
     ),
   );

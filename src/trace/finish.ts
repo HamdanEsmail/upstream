@@ -8,7 +8,7 @@ import { decide } from "../core/verdict";
 import type { Env } from "../env";
 import { proposedOf } from "./check";
 import { freeRunsOff, paidRunsLeft } from "./deep";
-import { addEvent, clearStaged, getStaged, getSteps, getTrace, saveChanges, saveSteps, updateTrace, type StoredChange, type StoredStep } from "./store";
+import { addEvent, clearStaged, getStaged, getSteps, getTrace, saveChanges, saveSteps, updateTrace, wasSearched, type StoredChange, type StoredStep } from "./store";
 
 const SUMMARY_MAX = 420;
 
@@ -85,8 +85,10 @@ export async function finishTrace(env: Env, traceId: string, now: Date): Promise
 
   let summary = brief(trail?.summary ?? "");
   if (trail === null) {
-    const links = "this trail shows only what following the page's links found.";
-    if (trace.researchRunId !== null) summary = "The deep search gave no trail, so this shows only what following the page's links found.";
+    // A trail made before Upstream searched, or one whose search could not be asked, comes from links alone.
+    const found = (await wasSearched(env.DB, traceId)) ? "following the page's links and searching the web for the sentence found." : "following the page's links found.";
+    const links = `this trail shows only what ${found}`;
+    if (trace.researchRunId !== null) summary = `The deep search gave no trail, so this shows only what ${found}`;
     else if (await freeRunsOff(env))
       summary =
         (await paidRunsLeft(env)) === 0

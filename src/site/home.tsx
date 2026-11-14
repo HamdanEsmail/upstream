@@ -24,13 +24,13 @@ export function Home({ note, recent, deepOut, paidLeft }: { note: string | null;
 
       {deepOut === "today" ? (
         <p class="note" role="status">
-          Today's deep searches are used up. A trace started now follows links only and takes under a minute. The deep search is back at midnight UTC; trace the same
+          Today's deep searches are used up. A trace started now follows links and searches the web for the sentence, and takes about a minute. The deep search is back at midnight UTC; trace the same
           sentence again after that and it starts afresh with the full search.
         </p>
       ) : null}
       {deepOut === "off" ? (
         <p class="note" role="status">
-          The money set aside for deep searches is used up, so a trace started now follows links only and takes under a minute. The trails below show what a full
+          The money set aside for deep searches is used up, so a trace started now follows links and searches the web for the sentence, and takes about a minute. The trails below show what a full
           search finds.
         </p>
       ) : null}
@@ -51,9 +51,9 @@ export function Home({ note, recent, deepOut, paidLeft }: { note: string | null;
         </div>
         <p class="hint">
           {deepOut === "today"
-            ? "The first steps appear within seconds. Today the trace stops there, with links only."
+            ? "The first steps appear within seconds. Today the trace stops after the links and a web search."
             : deepOut === "off"
-              ? "The first steps appear within seconds. For now the trace stops there, with links only."
+              ? "The first steps appear within seconds. For now the trace stops after the links and a web search."
               : "The first steps appear within seconds. The full trail usually takes 4 to 6 minutes, and you can watch it grow."}
           {deepOut === null && paidLeft !== null && paidLeft > 0 ? ` A deep search costs $${RESEARCH_RUN_USD} at TinyFish, and Upstream can pay for ${paidLeft} more.` : null}
         </p>
@@ -80,11 +80,12 @@ export function Home({ note, recent, deepOut, paidLeft }: { note: string | null;
       <ol class="steps3">
         <li>
           <b>It follows the links.</b>
-          It reads the page, then the pages it links to, looking for the same claim. This takes seconds, and each step it finds is on screen at once.
+          It reads the page, then the pages it links to, looking for the same claim. When the links run out, it searches the web for the sentence and reads the older
+          pages that turn up. This takes seconds, and each step it finds is on screen at once.
         </li>
         <li>
           <b>It searches wider.</b>
-          TinyFish's research tool looks for older sources when the links run out. This takes a few minutes.
+          TinyFish's research tool reads dozens of pages to find sources further back still. This takes a few minutes.
         </li>
         <li>
           <b>It reads every step again.</b>

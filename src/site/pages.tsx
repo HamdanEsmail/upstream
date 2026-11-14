@@ -1,22 +1,29 @@
 // The plain pages: how it works, getting the extension, and not found.
-import { FOLLOW_DEPTH, RESEARCH_RUN_USD, TRACES_PER_DAY, TRACES_PER_VISITOR_PER_HOUR } from "../core/limits";
+import { FOLLOW_DEPTH, RESEARCH_RUN_USD, SEARCH_KEEP, TRACES_PER_DAY, TRACES_PER_VISITOR_PER_HOUR } from "../core/limits";
 
 export function HowPage({ reserveUsd }: { reserveUsd: number }) {
   return (
     <main class="page">
       <h1>How Upstream works</h1>
-      <p class="lede">Two ways of looking, and one rule: a source is shown only after its page has been read and the sentence looked for.</p>
+      <p class="lede">Three ways of looking, and one rule: a source is shown only after its page has been read and the sentence looked for.</p>
 
-      <h2>Two engines</h2>
+      <h2>Three ways of looking</h2>
       <div class="prose">
         <h3>Following links, in seconds</h3>
         <p>
           Upstream reads the page with TinyFish Fetch and finds the sentence you highlighted. Then it reads the pages that page links to and looks for the same claim on
           them. A page that states it becomes the next step, and the search carries on from there, up to {FOLLOW_DEPTH} steps deep.
         </p>
+        <h3>Searching for the sentence, in seconds</h3>
+        <p>
+          Many pages repeat a claim without linking to anything. So when the links run out, Upstream asks TinyFish Search for the sentence itself, and only for pages
+          published before the earliest step it has. It reads the pages the search lists. A page is kept only when it holds the sentence word for word, or nearly so
+          with every figure, year and name the same, and when it is older than everything the links found. At most {SEARCH_KEEP} are kept. No link leads to such a
+          page, so it joins the trail by a dashed line.
+        </p>
         <h3>The deep search, in minutes</h3>
         <p>
-          Many pages repeat a claim without linking to anything. So a TinyFish research run looks wider: it searches, reads dozens of pages and proposes a trail back to
+          A TinyFish research run looks wider still: it searches, reads dozens of pages and proposes a trail back to
           the earliest source it can find. This usually takes 4 to 6 minutes. While it runs, the trail page says how many pages it has read.
         </p>
       </div>
@@ -100,11 +107,11 @@ export function HowPage({ reserveUsd }: { reserveUsd: number }) {
       <h2>Limits and cost</h2>
       <div class="prose">
         <p>
-          Following links is free. A deep search is a TinyFish research run, and TinyFish charges ${RESEARCH_RUN_USD} for each one.{" "}
+          Following links and searching for the sentence are free. A deep search is a TinyFish research run, and TinyFish charges ${RESEARCH_RUN_USD} for each one.{" "}
           {reserveUsd >= RESEARCH_RUN_USD
             ? `Upstream pays for them from a reserve of $${reserveUsd} in total, which is ${Math.floor(reserveUsd / RESEARCH_RUN_USD)} searches. When the reserve is used, a`
             : "Nothing is set aside for them at present, so a"}{" "}
-          trace follows links only and says so, and the trails on the first page show what a full search finds. A trail that exists is not traced twice: the same
+          trace follows links and searches the web for the sentence, says that no deep search ran, and the trails on the first page show what a full search finds. A trail that exists is not traced twice: the same
           sentence on the same page opens the saved trail. The one exception is a trail made when no deep search was to be had: trace that sentence again on a later day
           and it starts afresh.
         </p>

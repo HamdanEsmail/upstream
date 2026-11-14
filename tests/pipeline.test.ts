@@ -2,7 +2,8 @@ import { env } from "cloudflare:workers";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { bookDeep, paidRunsLeft } from "../src/trace/deep";
 import { runLeg, runTrace, type Leg, type LegStep, type TraceStep } from "../src/trace/run";
-import { countOf, getChanges, getEvents, getSteps, getTrace, insertTrace, totals } from "../src/trace/store";
+import { askSearch, readListed } from "../src/trace/search";
+import { countOf, getChanges, getEvents, getSteps, getTrace, insertTrace, totals, wasSearched } from "../src/trace/store";
 import { fetchMock } from "./helpers/fetch-mock";
 
 const NOW = new Date("2026-11-11T06:30:00.000Z");
@@ -65,6 +66,14 @@ type World = {
   /** What each account's wallet holds on successive reads, by key. The last value repeats; null is a read that fails. */
   wallet: Record<string, (number | null)[]>;
   archive: Record<string, { copy: string; timestamp: string } | undefined>;
+  /** The day the Internet Archive first saved a page, by address. */
+  firstSeen: Record<string, string | undefined>;
+  /** What TinyFish Search lists for the sentence. `date` is the index's own date for the page, in whatever form it gives. */
+  search: { url: string; date?: string }[];
+  /** 200 unless a test makes Search impossible to ask. */
+  searchStatus: number;
+  /** Every question put to Search. */
+  searched: URL[];
   fetched: string[][];
   startedWith: string[];
 };
@@ -82,6 +91,10 @@ function world(over: Partial<World> = {}): World {
     runStatus: 200,
     wallet: { "test-tinyfish-key": [27], "test-tinyfish-key-2": [35.97] },
     archive: {},
+    firstSeen: {},
+    search: [],
+    searchStatus: 200,
+    searched: [],
     fetched: [],
     startedWith: [],
     ...over,
@@ -152,7 +165,25 @@ function world(over: Partial<World> = {}): World {
       return Response.json({ archived_snapshots: saved ? { closest: { available: true, status: "200", timestamp: saved.timestamp, url: saved.copy } } : {} });
     },
   });
-  fetchMock.intercept({ method: "GET", url: /web\.archive\.org\/cdx/, times: Infinity, reply: { json: [] } });
+  fetchMock.intercept({
+    method: "GET",
+    url: /web\.archive\.org\/cdx/,
+    times: Infinity,
+    reply: (req) => {
+      const seen = w.firstSeen[new URL(req.url).searchParams.get("url") ?? ""];
+      return Response.json(seen ? [["timestamp", "statuscode"], [`${seen.replace(/-/g, "")}120000`, "200"]] : []);
+    },
+  });
+  fetchMock.intercept({
+    method: "GET",
+    url: /^https:\/\/api\.search\.tinyfish\.ai\/\?/,
+    times: Infinity,
+    reply: (req) => {
+      w.searched.push(new URL(req.url));
+      if (w.searchStatus !== 200) return Response.json({ error: { code: "SERVICE_BUSY" } }, { status: w.searchStatus });
+      return Response.json({ query: "", results: w.search.map((r, i) => ({ position: i + 1, site_name: "", title: "", snippet: "", ...r })), total_results: w.search.length, page: 0 });
+    },
+  });
   return w;
 }
 
@@ -265,10 +296,10 @@ describe("which deep search a trace gets", () => {
     const trace = await getTrace(env.DB, "t1");
     expect(trace).toMatchObject({ status: "done", verdict: "not_settled", reached: "earliest_copy", researchRunId: null, spendUsd: 0 });
     expect(trace?.summary).toBe(
-      "The deep search did not run, so this trail shows only what following the page's links found. The day's deep searches return at midnight UTC: trace the sentence again after that for the full trail.",
+      "The deep search did not run, so this trail shows only what following the page's links and searching the web for the sentence found. The day's deep searches return at midnight UTC: trace the sentence again after that for the full trail.",
     );
     expect((await getSteps(env.DB, "t1")).map((s) => s.url)).toEqual([START, AGENCY]);
-    expect((await getEvents(env.DB, "t1", 50)).map((e) => e.message)).toContain("Today's deep searches are used up. This trail comes from following links only; the deep search is back at midnight UTC.");
+    expect((await getEvents(env.DB, "t1", 50)).map((e) => e.message)).toContain("Today's deep searches are used up. This trail comes from following links and searching the web for the sentence; the deep search is back at midnight UTC.");
     // The first page reads this mark to warn the next visitor before they start.
     expect(await countOf(env.DB, "2026-11-11", "research:out")).toBe(1);
   });
@@ -314,7 +345,7 @@ describe("never spending by accident", () => {
     expect(await countOf(env.DB, "all", "research:paid")).toBe(0);
     expect(await getTrace(env.DB, "t1")).toMatchObject({ status: "done", verdict: "not_settled", spendUsd: 0, researchRunId: null });
     expect((await getEvents(env.DB, "t1", 50)).map((e) => e.message)).toContain(
-      "Today's deep-search allowance could not be checked, so none was started. This trail comes from following links only.",
+      "Today's deep-search allowance could not be checked, so none was started. This trail comes from following links and searching the web for the sentence.",
     );
   });
 
@@ -349,7 +380,7 @@ describe("never spending by accident", () => {
     expect(await countOf(env.DB, "all", "research:paid")).toBe(0);
     expect(await getTrace(env.DB, "t1")).toMatchObject({ status: "done", verdict: "not_settled", spendUsd: 0, researchRunId: null });
     expect((await getEvents(env.DB, "t1", 50)).map((e) => e.message)).toContain(
-      "Today's deep-search allowance could not be checked, so none was started. This trail comes from following links only.",
+      "Today's deep-search allowance could not be checked, so none was started. This trail comes from following links and searching the web for the sentence.",
     );
   });
 
@@ -474,11 +505,35 @@ describe("fitting the free plan, which allows a Workflow run 50 requests to othe
     const relay: LegStep = { do: step.do, sleep: step.sleep, handOver: async (leg) => void waiting.push(leg) };
     for (let leg = waiting.shift(); leg; leg = waiting.shift()) {
       const before = fetchMock.calls.length;
+      const named = step.names.length;
       await runLeg(env, id, leg, relay, clock);
       legs.push({ part: leg.part, calls: fetchMock.calls.length - before });
+      // A Workflow remembers a finished step by its name, so no two steps of a run may share one.
+      const names = step.names.slice(named);
+      expect(new Set(names).size).toBe(names.length);
     }
     return legs;
   }
+
+  it("keeps the first leg to 45 too, at its worst: every link followed on its second try, ten undated pages from Search", async () => {
+    // Each page on the way links to five pages that say nothing, then to the next page that holds the sentence.
+    const hop = (n: number) => `https://hop${n}.example/page`;
+    const duds = (n: number) => Array.from({ length: 5 }, (_, i) => `https://dud${n}-${i}.example/page`);
+    const listed = Array.from({ length: 10 }, (_, i) => `https://listed${i}.example/page`);
+    const pages: Record<string, Page> = { [START]: { ...PAGES[START]!, links: [...duds(0), hop(1)] } };
+    for (let n = 1; n <= 5; n++) pages[hop(n)] = { published_date: `201${9 - n}-01-01`, text: `${HIGHLIGHT}.`, links: n < 5 ? [...duds(n), hop(n + 1)] : [] };
+    // Ten pages that hold the sentence and give no date: each read asks the Internet Archive twice, and nothing can be kept.
+    for (const url of listed) pages[url] = { text: `${HIGHLIGHT}.`, links: [] };
+    world({ pages, search: listed.map((url) => ({ url })) });
+    await newTrace();
+
+    const [first] = await legByLeg();
+
+    // 1 page, 10 tries at links, 1 question to Search, 2 reads of what it listed, 4 questions to the archive,
+    // and 3 to start the deep search (today's runs, the wallet, the start).
+    expect(first).toEqual({ part: "start", calls: 21 });
+    expect((await getSteps(env.DB, "t1")).filter((s) => s.url?.startsWith("https://hop")).length).toBe(5);
+  });
 
   it("keeps every leg to 45 outside requests, however slow the search and however hard its steps", async () => {
     // Twelve proposed steps on pages that cannot be read. Each one costs a read, a saved copy
@@ -571,11 +626,11 @@ describe("once a free run has been charged", () => {
     const trace = await getTrace(env.DB, "t1");
     expect(trace).toMatchObject({ status: "done", verdict: "not_settled", researchRunId: null, spendUsd: 0 });
     expect(trace?.summary).toBe(
-      "The deep search did not run, so this trail shows only what following the page's links found. The money set aside for deep searches is used up.",
+      "The deep search did not run, so this trail shows only what following the page's links and searching the web for the sentence found. The money set aside for deep searches is used up.",
     );
     const said = (await getEvents(env.DB, "t1", 50)).map((e) => e.message);
     expect(said).toContain(
-      "No deep search was started: each one costs $2 at TinyFish, and the money set aside for them is used up. This trail comes from following links only.",
+      "No deep search was started: each one costs $2 at TinyFish, and the money set aside for them is used up. This trail comes from following links and searching the web for the sentence.",
     );
     expect(said.join(" ")).not.toMatch(/midnight|switched off|should have been free/);
   });
@@ -589,7 +644,7 @@ describe("once a free run has been charged", () => {
     const trace = await getTrace(env.DB, "t1");
     expect(trace).toMatchObject({ status: "done", researchRunId: null, spendUsd: 0 });
     expect(trace?.summary).toBe(
-      "The deep search did not run, so this trail shows only what following the page's links found. Trace the sentence again on a later day for the full trail.",
+      "The deep search did not run, so this trail shows only what following the page's links and searching the web for the sentence found. Trace the sentence again on a later day for the full trail.",
     );
   });
 
@@ -810,5 +865,163 @@ describe("a quotation", () => {
     await runTrace(env, "t1", fakeStep(), clock);
     expect(await getTrace(env.DB, "t1")).toMatchObject({ verdict: "said_by_someone_else" });
     expect((await getChanges(env.DB, "t1")).filter((c) => c.basis === "code")).toEqual([]);
+  });
+});
+
+describe("searching the web for the sentence, when the links run out", () => {
+  const LEAFLET = "https://archive.example/1999-leaflet";
+  const said = (date: string | undefined, line = `${HIGHLIGHT}, the leaflet said.`): Page => ({ title: "A leaflet", published_date: date, text: `Notes follow. ${line} More notes.`, links: [] });
+
+  /** A day on which no deep search is to be had: the trail is what the links and Search find. */
+  async function withoutDeep(over: Partial<World> = {}): Promise<World> {
+    const w = world({ runsToday: { "test-tinyfish-key": 2, "test-tinyfish-key-2": 2 }, ...over });
+    await env.DB.prepare("INSERT INTO limits (day, name, count) VALUES ('all', 'research:paid', 1)").run();
+    await newTrace();
+    return w;
+  }
+  const trailOf = async () => (await getSteps(env.DB, "t1")).map((s) => [s.url, s.reading, s.reachedBy, s.date, s.dateSource]);
+  const log = async () => (await getEvents(env.DB, "t1", 50)).map((e) => e.message);
+
+  it("asks Search for the sentence, for pages older than the earliest step so far", async () => {
+    const w = await withoutDeep();
+    await runTrace(env, "t1", fakeStep(), clock);
+    expect(w.searched).toHaveLength(1);
+    expect(w.searched[0]?.searchParams.get("query")).toBe(HIGHLIGHT);
+    expect(w.searched[0]?.searchParams.get("before_date")).toBe("2017-11-02");
+    expect(await log()).toContain("Searched the web for the sentence: nothing new was listed.");
+  });
+
+  it("sets no date limit when no step so far has a date", async () => {
+    const w = await withoutDeep({ pages: { [START]: { ...PAGES[START]!, published_date: undefined }, [AGENCY]: { ...PAGES[AGENCY]!, published_date: undefined } } });
+    await runTrace(env, "t1", fakeStep(), clock);
+    expect(w.searched[0]?.searchParams.has("before_date")).toBe(false);
+  });
+
+  it("adds an older page that holds the sentence, as a step found by search", async () => {
+    await withoutDeep({ search: [{ url: LEAFLET }], pages: { ...PAGES, [LEAFLET]: said("1999-03-01") } });
+    await runTrace(env, "t1", fakeStep(), clock);
+    expect(await trailOf()).toEqual([
+      [START, "exact", "start", "2025-12-15", "page"],
+      [AGENCY, "close", "link", "2017-11-02", "page"],
+      [LEAFLET, "exact", "search", "1999-03-01", "page"],
+    ]);
+    expect((await getSteps(env.DB, "t1"))[2]?.wording).toBe(`${HIGHLIGHT}, the leaflet said.`);
+    const events = await log();
+    expect(events).toContain("Searched the web for the sentence: 1 page listed.");
+    expect(events).toContain("The search led to archive.example: found word for word.");
+    expect(await getTrace(env.DB, "t1")).toMatchObject({ status: "done", verdict: "not_settled", reached: "earliest_copy", spendUsd: 0 });
+  });
+
+  it("keeps nothing that is not older than the trail", async () => {
+    await withoutDeep({ search: [{ url: LEAFLET }], pages: { ...PAGES, [LEAFLET]: said("2020-05-05") } });
+    await runTrace(env, "t1", fakeStep(), clock);
+    expect((await trailOf()).map((s) => s[0])).toEqual([START, AGENCY]);
+    expect(await log()).toContain("None of the pages the search listed is an older page that holds the sentence.");
+  });
+
+  it("keeps nothing that says it with another figure", async () => {
+    await withoutDeep({ search: [{ url: LEAFLET }], pages: { ...PAGES, [LEAFLET]: said("1999-03-01", "People spend nearly 80 percent of their time indoors.") } });
+    await runTrace(env, "t1", fakeStep(), clock);
+    expect((await trailOf()).map((s) => s[0])).toEqual([START, AGENCY]);
+  });
+
+  it("dates a page that gives no date by the Internet Archive's first saved copy", async () => {
+    await withoutDeep({ search: [{ url: LEAFLET }], pages: { ...PAGES, [LEAFLET]: said(undefined) }, firstSeen: { [LEAFLET]: "2003-06-07" } });
+    await runTrace(env, "t1", fakeStep(), clock);
+    expect((await trailOf())[2]).toEqual([LEAFLET, "exact", "search", "2003-06-07", "archive"]);
+  });
+
+  it("keeps nothing that cannot be dated: such a page cannot be shown to be older", async () => {
+    await withoutDeep({ search: [{ url: LEAFLET }], pages: { ...PAGES, [LEAFLET]: said(undefined) } });
+    await runTrace(env, "t1", fakeStep(), clock);
+    expect((await trailOf()).map((s) => s[0])).toEqual([START, AGENCY]);
+  });
+
+  describe("with seven pages listed", () => {
+    const at = (n: number) => `https://old.example/page-${n}`;
+    const years = [2010, 2001, 2005, 1995, 1990, 2012, 2014];
+    // The index gives its dates in several forms; for the fifth and sixth pages it gives none that can be used.
+    const search = [{ url: at(0), date: "2010-01-01T00:00:00Z" }, { url: at(1), date: "Mar 5, 2001" }, { url: at(2), date: "2005-02-02" }, { url: at(3), date: "1995-05-05T10:00:00Z" }, { url: at(4), date: "30 years ago" }, { url: at(5) }, { url: at(6), date: "2014-07-07" }];
+    const pagesWhere = (holds: (n: number) => boolean) => ({
+      ...PAGES,
+      ...Object.fromEntries(years.map((y, n) => [at(n), holds(n) ? said(`${y}-06-01`) : said(`${y}-06-01`, "Nothing about it here.")])),
+    });
+    const reads = (w: World) => w.fetched.filter((batch) => batch.some((u) => u.startsWith("https://old.example/")));
+
+    it("reads the pages the index dates oldest first, five to a read, then the rest", async () => {
+      const w = await withoutDeep({ search, pages: pagesWhere((n) => [0, 1, 4, 5].includes(n)) });
+      await runTrace(env, "t1", fakeStep(), clock);
+      expect(reads(w)).toEqual([[at(3), at(1), at(2), at(0), at(6)], [at(4), at(5)]]);
+      // Two were kept from the first read, so the second had room for one: the older of its two.
+      expect((await trailOf()).slice(2).map((s) => s[0])).toEqual([at(0), at(1), at(4)]);
+    });
+
+    it("keeps three at most, the oldest, and reads no further once it has them", async () => {
+      const w = await withoutDeep({ search, pages: pagesWhere(() => true) });
+      await runTrace(env, "t1", fakeStep(), clock);
+      expect(reads(w)).toEqual([[at(3), at(1), at(2), at(0), at(6)]]);
+      expect((await trailOf()).slice(2).map((s) => s[0])).toEqual([at(2), at(1), at(3)]);
+    });
+  });
+
+  it("reads no page that is already in the trail, no social page and not the highlighted page itself", async () => {
+    const w = await withoutDeep({ search: [{ url: `${AGENCY}/` }, { url: START }, { url: "https://www.facebook.com/someone/posts/1" }, { url: LEAFLET }], pages: { ...PAGES, [LEAFLET]: said("1999-03-01") } });
+    await runTrace(env, "t1", fakeStep(), clock);
+    expect(w.fetched[w.fetched.length - 1]).toEqual([LEAFLET]);
+  });
+
+  it("goes on without it when Search cannot be asked, and says so", async () => {
+    await withoutDeep({ searchStatus: 503, search: [{ url: LEAFLET }], pages: { ...PAGES, [LEAFLET]: said("1999-03-01") } });
+    await runTrace(env, "t1", fakeStep(), clock);
+    expect(await getTrace(env.DB, "t1")).toMatchObject({ status: "done", verdict: "not_settled" });
+    expect((await trailOf()).map((s) => s[0])).toEqual([START, AGENCY]);
+    expect(await log()).toContain("The web search could not be asked (SERVICE_BUSY), so the trace goes on without it.");
+    expect(await wasSearched(env.DB, "t1")).toBe(false);
+  });
+
+  it("goes on without it when a read of what Search listed breaks", async () => {
+    await withoutDeep({ search: [{ url: LEAFLET }], pages: { ...PAGES, [LEAFLET]: said("1999-03-01") } });
+    const step = fakeStep();
+    const real = step.do;
+    step.do = (name, fn) => (name.startsWith("read what the search listed") ? Promise.reject(new Error("too heavy")) : real(name, fn));
+    await runTrace(env, "t1", step, clock);
+    expect(await getTrace(env.DB, "t1")).toMatchObject({ status: "done" });
+    expect((await trailOf()).map((s) => s[0])).toEqual([START, AGENCY]);
+  });
+
+  it("notes once in the ledger that Search was used, at no cost", async () => {
+    await withoutDeep();
+    await runTrace(env, "t1", fakeStep(), clock);
+    await askSearch(env, "t1", NOW.toISOString());
+    const rows = (await env.DB.prepare("SELECT kind, amount_usd, ref FROM spend").all<{ kind: string; amount_usd: number; ref: string }>()).results;
+    expect(rows).toEqual([{ kind: "search", amount_usd: 0, ref: "t1" }]);
+    expect(await wasSearched(env.DB, "t1")).toBe(true);
+    expect((await totals(env.DB)).spendUsd).toBe(0);
+  });
+
+  it("adds no page twice when a read is tried again", async () => {
+    await withoutDeep({ search: [{ url: LEAFLET }], pages: { ...PAGES, [LEAFLET]: said("1999-03-01") } });
+    await runTrace(env, "t1", fakeStep(), clock);
+    await readListed(env, "t1", [LEAFLET], NOW.toISOString());
+    expect((await trailOf()).filter((s) => s[0] === LEAFLET)).toHaveLength(1);
+  });
+
+  it("says in the summary that the trail comes from links and a search", async () => {
+    await withoutDeep();
+    await runTrace(env, "t1", fakeStep(), clock);
+    expect((await getTrace(env.DB, "t1"))?.summary).toBe(
+      "The deep search did not run, so this trail shows only what following the page's links and searching the web for the sentence found. The day's deep searches return at midnight UTC: trace the sentence again after that for the full trail.",
+    );
+  });
+
+  it("hands what Search found to the deep search, to check and go further back", async () => {
+    world({ search: [{ url: LEAFLET }], pages: { ...PAGES, [LEAFLET]: said("1999-03-01") } });
+    await newTrace();
+    await runTrace(env, "t1", fakeStep(), clock);
+    const start = fetchMock.calls.find((c) => c.url.endsWith("/run-research-async"));
+    expect((start?.body as { query: string }).query).toContain(`${LEAFLET}: "${HIGHLIGHT}, the leaflet said."`);
+    // The deep search's own verdict stands, and the page Search found is part of the finished trail.
+    expect(await getTrace(env.DB, "t1")).toMatchObject({ status: "done", verdict: "changed_on_the_way" });
+    expect((await trailOf()).map((s) => s[0])).toContain(LEAFLET);
   });
 });

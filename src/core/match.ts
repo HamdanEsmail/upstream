@@ -175,3 +175,72 @@ export function findClaim(pageText: string, rawClaim: string): Found {
   if (best !== null && best.score >= CLOSE_AT) return { reading: "close", sentence: best.sentence, score: best.score };
   return { reading: "not_found", sentence: null, score: best?.score ?? 0 };
 }
+
+/** A page nothing links to must score at least this to count as the same statement. */
+const SURE_AT = 0.8;
+/** A part of a claim is a statement of its own only from this many words. */
+const PART_WORDS = 6;
+const YEAR = /\b(?:1[5-9]\d\d|20\d\d)\b/g;
+
+/** The claim's meaning-carrying words that are written with a capital: names, and a word that opens the sentence. */
+function capitalised(claim: string): string[] {
+  const out: string[] = [];
+  for (const raw of claim.normalize("NFKC").split(/[^A-Za-z0-9%]+/)) {
+    if (!/^[A-Z]/.test(raw)) continue;
+    const [word] = contentWords(raw);
+    if (word !== undefined && !/\d|%/.test(word)) out.push(word);
+  }
+  return out;
+}
+
+const holdsFigures = (figures: number[], text: string): boolean => {
+  const theirs = numbers(text);
+  return figures.every((value) => theirs.some((b) => b.value === value));
+};
+
+/**
+ * The part of a claim that carries all of its figures, when the claim falls into parts at a
+ * comma, semicolon, colon or dash and nothing in the other parts narrows it: no name, no
+ * year, no other number. "People spend nearly 90 percent of their time indoors, yet indoor
+ * air is studied less" gives its first half. Null when there is no such part.
+ */
+function figurePart(claim: string): string | null {
+  const figures = numbers(claim).map((n) => n.value);
+  if (figures.length === 0) return null;
+  const parts = claim.split(/[,;:]\s+|\s[-–—]\s/);
+  if (parts.length < 2) return null;
+  const at = parts.findIndex((p) => holdsFigures(figures, p));
+  const part = (parts[at] ?? "").trim();
+  if (at === -1 || part.split(/\s+/).length < PART_WORDS) return null;
+  const rest = parts.filter((_, i) => i !== at).join(" ");
+  return capitalised(rest).length === 0 && !/\d/.test(rest) ? part : null;
+}
+
+/**
+ * `findClaim` for a page that only a search led to. No link vouches for such a page, so it
+ * is held to more than a linked one. It counts when it holds:
+ * - the claim word for word; or
+ * - word for word, the part of the claim that carries its figures (read as `close`: the
+ *   page says the same thing, in a sentence of its own); or
+ * - nearly the same words, with every figure, every year and every name of the claim in
+ *   the page's sentence. "80%" for "90%", or China for Norway, is another claim.
+ */
+export function findSure(pageText: string, rawClaim: string): Found {
+  const claim = withoutFootnotes(rawClaim);
+  const found = findClaim(pageText, claim);
+  if (found.reading === "exact") return found;
+
+  const part = figurePart(claim);
+  if (part !== null) {
+    const held = findClaim(pageText, part);
+    if (held.reading === "exact") return { reading: "close", sentence: held.sentence, score: SURE_AT };
+  }
+
+  const none: Found = { reading: "not_found", sentence: null, score: found.score };
+  if (found.reading !== "close" || found.sentence === null || found.score < SURE_AT) return none;
+  const sentence = found.sentence;
+  if (!holdsFigures(numbers(claim).map((n) => n.value), sentence)) return none;
+  if (!(claim.match(YEAR) ?? []).every((year) => sentence.includes(year))) return none;
+  const theirs = stems(sentence);
+  return capitalised(claim).every((word) => theirs.has(stem(word))) ? found : none;
+}

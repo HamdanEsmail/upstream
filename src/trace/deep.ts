@@ -105,10 +105,10 @@ export async function startDeep(env: Env, traceId: string, now: Date): Promise<{
   const slot = main.slot ?? second.slot ?? (counted ? await paidSlot(env) : null);
   if (slot === null) {
     const why = !counted
-      ? "Today's deep-search allowance could not be checked, so none was started. This trail comes from following links only."
+      ? "Today's deep-search allowance could not be checked, so none was started. This trail comes from following links and searching the web for the sentence."
       : off
-        ? `No deep search was started: each one costs $${RESEARCH_RUN_USD} at TinyFish, and the money set aside for them is used up. This trail comes from following links only.`
-        : "Today's deep searches are used up. This trail comes from following links only; the deep search is back at midnight UTC.";
+        ? `No deep search was started: each one costs $${RESEARCH_RUN_USD} at TinyFish, and the money set aside for them is used up. This trail comes from following links and searching the web for the sentence.`
+        : "Today's deep searches are used up. This trail comes from following links and searching the web for the sentence; the deep search is back at midnight UTC.";
     await addEvent(env.DB, traceId, why, stamp);
     // The first page reads this mark and warns the next visitor before they start a trace.
     if (counted) await takeSlot(env.DB, day, OUT, 1);
@@ -122,7 +122,7 @@ export async function startDeep(env: Env, traceId: string, now: Date): Promise<{
   } catch (err) {
     if (!(err instanceof TinyFishError)) throw err;
     await giveBack(env.DB, slot.day, slot.name);
-    await addEvent(env.DB, traceId, `The deep search could not be started (${err.code}). This trail comes from following links only.`, stamp);
+    await addEvent(env.DB, traceId, `The deep search could not be started (${err.code}). This trail comes from following links and searching the web for the sentence.`, stamp);
     return { started: false };
   }
 
@@ -229,5 +229,5 @@ export async function bookDeep(env: Env, traceId: string, now: string): Promise<
 
 /** Records that the deep search gave nothing, whether it failed or ran out of time. */
 export async function giveUpDeep(env: Env, traceId: string, now: string): Promise<void> {
-  await addEvent(env.DB, traceId, "The deep search did not finish. This trail comes from following links only.", now);
+  await addEvent(env.DB, traceId, "The deep search did not finish. This trail comes from following links and searching the web for the sentence.", now);
 }

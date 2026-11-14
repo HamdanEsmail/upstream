@@ -24,7 +24,7 @@ function bareSite(url: string): boolean {
 }
 
 /** True for the address of a copy the Internet Archive saved. */
-function savedCopyAddress(url: string): boolean {
+export function savedCopyAddress(url: string): boolean {
   return /^https?:\/\/web\.archive\.org\/web\/\d{4,14}[a-z_]*\//i.test(url);
 }
 

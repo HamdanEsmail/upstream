@@ -105,6 +105,12 @@ function Verdict({ doc }: { doc: TrailDocument }) {
   );
 }
 
+/** The TinyFish tools this trail really used: Fetch always, Search and Research only when they ran for it. */
+function tools(doc: TrailDocument): string {
+  const used = ["Fetch", ...(doc.searched ? ["Search"] : []), ...(doc.progress.deepStartedAt !== null ? ["Research"] : [])];
+  return `TinyFish ${used.length === 1 ? used[0] : `${used.slice(0, -1).join(", ")} and ${used[used.length - 1]}`}`;
+}
+
 function Facts({ doc }: { doc: TrailDocument }) {
   const beyond = doc.steps.slice(1);
   // A source known only because a later page quotes it is not counted as read on its own page.
@@ -144,7 +150,7 @@ function Facts({ doc }: { doc: TrailDocument }) {
       {doc.seconds !== null ? (
         <div>
           <dt>{duration(doc.seconds)}</dt>
-          <dd>{pages > 0 ? `${pages} pages read by the deep search` : "following links only"}</dd>
+          <dd>{pages > 0 ? `${pages} pages read by the deep search` : doc.searched ? "following links and searching the web" : "following links only"}</dd>
         </div>
       ) : pages > 0 ? (
         // No time is known for a trail built from a deep search that had already finished.
@@ -201,7 +207,7 @@ export function TrailBody({ doc, panel }: { doc: TrailDocument; panel: boolean }
         ) : null}
         <p class="ev">
           {done && doc.finishedAt ? `Traced ${plainDate(doc.finishedAt.slice(0, 10))}, ${doc.finishedAt.slice(11, 16)} UTC` : `Started ${plainDate(doc.createdAt.slice(0, 10))}, ${doc.createdAt.slice(11, 16)} UTC`} ·{" "}
-          {doc.progress.deepStartedAt !== null ? "TinyFish Fetch and Research" : "TinyFish Fetch"} · spend on this trace ${doc.spendUsd.toFixed(2)}
+          {tools(doc)} · spend on this trace ${doc.spendUsd.toFixed(2)}
         </p>
       </div>
       {done ? (

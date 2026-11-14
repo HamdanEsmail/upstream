@@ -26,6 +26,17 @@ export const FOLLOW_PAGES_PER_TRY = 5;
 export const FOLLOW_CHARS = 40_000;
 
 /**
+ * When the links run out, TinyFish Search is asked once for the sentence. Of the pages it
+ * lists, at most this many are read, this many to a try (one Fetch call each), and at most
+ * this many that hold the sentence and are older than the trail are kept.
+ */
+export const SEARCH_READ_MAX = 10;
+export const SEARCH_PAGES_PER_TRY = 5;
+export const SEARCH_KEEP = 3;
+/** Pages from Search that give no date of their own and are looked up at the Internet Archive, per try. */
+export const SEARCH_ARCHIVE_LOOKUPS = 2;
+
+/**
  * TinyFish gave two completed research runs a day free on each account until 11 November 2026.
  * A run is still started as a free one until the wallet has shown a charge, which it did on
  * 12 November: see src/trace/deep.ts.
@@ -43,7 +54,8 @@ export const BOOK_AFTER_MS = 600_000;
 /**
  * Cloudflare's free plan allows one Workflow run 50 requests to other hosts. A trace is
  * therefore carried by several runs, one after another ("legs"), each kept well under that:
- * the first reads the page, follows links and starts the deep search (16 requests at most),
+ * the first reads the page, follows links, searches for the sentence and starts the deep
+ * search (23 requests at most),
  * a waiting leg reads the search this many times, and a checking leg checks this many
  * proposed steps (5 requests each at most).
  */
