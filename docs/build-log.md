@@ -197,3 +197,12 @@ A page with no date of its own is dated by the Internet Archive's first saved co
 **What I did not test.** A trace with both the search and a deep search has run only in the tests. On the live service it would cost $2 and one of the three that are left.
 
 It went live on 14 November at 11:04 UTC. The five trails, the numbers in the footer and the count of deep searches left read the same before and after the deploy, and each of the five still says "TinyFish Fetch and Research": none of them was made with the search. No trace was started on the live service to try it, because the first one will also take a deep search from the reserve.
+
+**Tried on the live service, at no cost.** I had written above that a trace with both the search and a deep search had run only in the tests, and that I started none on the live service. The same afternoon I ran one for nothing. The admin route that builds a trail from a deep search that has already finished starts no new one and takes nothing from the reserve. I gave it the finished search behind the indoor-air trail, and the same claim on another page: "People spend nearly 90 percent of their time indoors." in a 2025 magazine article.
+
+On the live service the first run took 19 seconds, and every step succeeded at the first attempt: the page, two tries at its links, the question to Search, two reads of what it listed, two tries at the links of the oldest page it kept. The search added three older pages, from 2022, 2019 and an Environmental Protection Agency guide of 2014. The report's six steps were checked beside them. The whole trail was done in 74 seconds and had read 34 pages.
+
+The verdict, "Changed on the way", rests on the 2001 study the report named, not on a page the search found. The agency page that the magazine names is still marked as named, though two pages from the search lie between them by date. The foot of the trail read "TinyFish Fetch, Search and Research".
+
+Then I deleted the test trail. The five trails, the footer and the reserve read as before, and the ledger keeps one line at $0 for the search. What is still untried on the live service is a deep search started and paid for from the reserve.
+
